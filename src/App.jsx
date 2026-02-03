@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { SetupWizard } from './components/SetupWizard/SetupWizard';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { ProgramView } from './components/Program/ProgramView';
@@ -9,13 +10,26 @@ import { LogMealModal } from './components/Modals/LogMealModal';
 import { LogWorkoutModal } from './components/Modals/LogWorkoutModal';
 import { TabBar } from './components/shared/TabBar';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import {
+  loadProfile,
+  loadProgram,
+  loadMeals,
+  loadWorkouts,
+  saveProfile,
+  saveProgram,
+  saveMeals,
+  saveWorkouts,
+  syncLocalToCloud
+} from './lib/database';
 
-function App() {
-  // Persisted state
-  const [profile, setProfile] = useLocalStorage('motus_profile', null);
-  const [program, setProgram] = useLocalStorage('motus_program', null);
-  const [meals, setMeals] = useLocalStorage('motus_meals', []);
-  const [workouts, setWorkouts] = useLocalStorage('motus_workouts', []);
+function AppContent() {
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
+
+  // Persisted state (localStorage as fallback)
+  const [profile, setProfileLocal] = useLocalStorage('motus_profile', null);
+  const [program, setProgramLocal] = useLocalStorage('motus_program', null);
+  const [meals, setMealsLocal] = useLocalStorage('motus_meals', []);
+  const [workouts, setWorkoutsLocal] = useLocalStorage('motus_workouts', []);
   const [completedExercises, setCompletedExercises] = useLocalStorage('motus_completed', []);
 
   // UI state
@@ -23,35 +37,88 @@ function App() {
   const [showMealModal, setShowMealModal] = useState(false);
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Check if setup is complete on mount
+  // Load data from cloud or localStorage on mount/auth change
   useEffect(() => {
-    if (profile && program) {
-      setIsSetupComplete(true);
+    const loadData = async () => {
+      setIsLoading(true);
+
+      // If user just signed in, sync local data to cloud first
+      if (isAuthenticated) {
+        await syncLocalToCloud();
+      }
+
+      // Load data (from cloud if authenticated, localStorage otherwise)
+      const [profileResult, programResult, mealsResult, workoutsResult] = await Promise.all([
+        loadProfile(),
+        loadProgram(),
+        loadMeals(),
+        loadWorkouts()
+      ]);
+
+      if (profileResult.data) setProfileLocal(profileResult.data);
+      if (programResult.data) setProgramLocal(programResult.data);
+      if (mealsResult.data) setMealsLocal(mealsResult.data);
+      if (workoutsResult.data) setWorkoutsLocal(workoutsResult.data);
+
+      if (profileResult.data && programResult.data) {
+        setIsSetupComplete(true);
+      }
+
+      setIsLoading(false);
+    };
+
+    if (!authLoading) {
+      loadData();
     }
-  }, [profile, program]);
+  }, [isAuthenticated, authLoading]);
+
+  // Wrapper functions to save to both local and cloud
+  const setProfile = async (data) => {
+    setProfileLocal(data);
+    await saveProfile(data);
+  };
+
+  const setProgram = async (data) => {
+    setProgramLocal(data);
+    await saveProgram(data);
+  };
+
+  const setMeals = async (data) => {
+    setMealsLocal(data);
+    await saveMeals(data);
+  };
+
+  const setWorkouts = async (data) => {
+    setWorkoutsLocal(data);
+    await saveWorkouts(data);
+  };
 
   // Handle setup completion
-  const handleSetupComplete = (data) => {
-    setProfile(data.profile);
-    setProgram(data.program);
+  const handleSetupComplete = async (data) => {
+    await setProfile(data.profile);
+    await setProgram(data.program);
     setIsSetupComplete(true);
   };
 
   // Handle meal logging
-  const handleLogMeal = (meal) => {
-    setMeals([...meals, { ...meal, id: Date.now() }]);
+  const handleLogMeal = async (meal) => {
+    const newMeals = [...meals, { ...meal, id: Date.now() }];
+    await setMeals(newMeals);
     setShowMealModal(false);
   };
 
   // Handle meal deletion
-  const handleDeleteMeal = (mealId) => {
-    setMeals(meals.filter((m) => m.id !== mealId));
+  const handleDeleteMeal = async (mealId) => {
+    const newMeals = meals.filter((m) => m.id !== mealId);
+    await setMeals(newMeals);
   };
 
   // Handle workout logging
-  const handleLogWorkout = (workout) => {
-    setWorkouts([...workouts, { ...workout, id: Date.now() }]);
+  const handleLogWorkout = async (workout) => {
+    const newWorkouts = [...workouts, { ...workout, id: Date.now() }];
+    await setWorkouts(newWorkouts);
     setShowWorkoutModal(false);
   };
 
@@ -89,17 +156,29 @@ function App() {
   };
 
   // Handle reset
-  const handleResetSetup = () => {
+  const handleResetSetup = async () => {
     if (window.confirm('Are you sure you want to reset? All your data will be lost.')) {
-      setProfile(null);
-      setProgram(null);
-      setMeals([]);
-      setWorkouts([]);
+      await setProfile(null);
+      await setProgram(null);
+      await setMeals([]);
+      await setWorkouts([]);
       setCompletedExercises([]);
       setIsSetupComplete(false);
       setActiveTab('dashboard');
     }
   };
+
+  // Loading state
+  if (authLoading || isLoading) {
+    return (
+      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-accent-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading your data...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Get today's data
   const today = new Date().toISOString().split('T')[0];
@@ -186,6 +265,14 @@ function App() {
         program={program}
       />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
