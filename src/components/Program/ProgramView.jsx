@@ -5,7 +5,8 @@ import { Card, CardBody, Button } from '../shared';
 const DAY_NAMES = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export function ProgramView({ program, completedWorkouts, onCompleteExercise, onBack }) {
-  const [selectedDay, setSelectedDay] = useState(new Date().getDay() || 7);
+  // Default to Monday (day 1) when viewing program, not today
+  const [selectedDay, setSelectedDay] = useState(1);
   const [expandedSession, setExpandedSession] = useState(0);
   const daySchedule = program?.weeklySchedule?.find((d) => d.day === selectedDay);
 

@@ -1,164 +1,158 @@
 import React from 'react';
-import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Target, Flame, Utensils } from 'lucide-react';
+import { Target, Flame, Calendar, TrendingUp, Dumbbell, Utensils, Clock } from 'lucide-react';
 
 export function ProgressWidget({ profile, program, meals, workouts, todaysMeals, todaysWorkouts }) {
-  // Calculate workout adherence (last 7 days)
-  const getWorkoutAdherence = () => {
-    const today = new Date();
-    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+  // Calculate days until goal
+  const getDaysUntilGoal = () => {
+    let targetDate = null;
 
-    const recentWorkouts = workouts?.filter(w => {
-      const date = new Date(w.loggedAt || w.completedAt);
-      return date >= weekAgo && date <= today;
-    }) || [];
+    if (profile?.raceDate) {
+      targetDate = new Date(profile.raceDate);
+    } else if (profile?.aestheticGoalDate) {
+      targetDate = new Date(profile.aestheticGoalDate);
+    } else if (profile?.targetDate) {
+      targetDate = new Date(profile.targetDate);
+    }
 
-    const targetDays = program?.daysPerWeek || profile?.desiredTrainingDays || 4;
-    const adherence = (recentWorkouts.length / targetDays) * 100;
-    return { count: recentWorkouts.length, target: targetDays, percentage: Math.min(adherence, 100) };
+    if (targetDate) {
+      const today = new Date();
+      const diffTime = targetDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays > 0 ? diffDays : null;
+    }
+    return null;
   };
 
-  // Calculate calorie adherence (today)
-  const getCalorieStatus = () => {
-    const targetCalories = profile?.macros?.calories || profile?.tdee || 2000;
-    const consumed = todaysMeals?.reduce((sum, meal) => sum + (meal.calories || 0), 0) || 0;
-    const difference = consumed - targetCalories;
-    const percentOfTarget = (consumed / targetCalories) * 100;
+  // Get goal-specific encouragement message
+  const getGoalMessage = () => {
+    const daysUntil = getDaysUntilGoal();
+    const programType = profile?.programType || program?.primaryGoal;
+    const subtype = profile?.programSubtype || program?.primarySubtype;
+    const currentPhase = program?.currentPhase || 'Base';
+    const currentWeek = program?.currentWeek || 1;
+    const totalWeeks = program?.mesocycleWeeks || 5;
 
-    return { consumed, target: targetCalories, difference, percentOfTarget };
+    // Goal-specific messages
+    if (programType === 'endurance') {
+      if (subtype === 'marathon' || subtype === 'running') {
+        const distance = profile?.raceDistance || 'race';
+        if (daysUntil) {
+          return `Your ${distance} is ${daysUntil} days away! Every run gets you closer to the finish line. 🏃`;
+        }
+        return `Building your aerobic base. Consistency beats intensity at this stage!`;
+      }
+      if (subtype === 'triathlon') {
+        if (daysUntil) {
+          return `${daysUntil} days until race day! Swim, bike, run - you've got this! 🏊‍♂️🚴🏃`;
+        }
+        return `Training all three disciplines builds an unstoppable athlete.`;
+      }
+      return `Endurance is built one workout at a time. Keep moving forward!`;
+    }
+
+    if (programType === 'strength') {
+      const liftGoals = profile?.strengthGoals?.filter(g => g.target) || [];
+      if (liftGoals.length > 0) {
+        return `${liftGoals.length} lift targets set. Progressive overload is your path to strength! 🏋️`;
+      }
+      return `${currentPhase} phase - building the foundation for serious strength gains.`;
+    }
+
+    if (programType === 'aesthetic') {
+      const targetBF = profile?.targetBodyFat;
+      if (targetBF) {
+        return `Working toward ${targetBF}% body fat. Trust the process - gains take time! 💪`;
+      }
+      return `Sculpting takes patience. Your dedication will pay off!`;
+    }
+
+    if (programType === 'fatloss') {
+      const targetWeight = profile?.targetWeight;
+      if (targetWeight) {
+        return `On track to ${targetWeight} ${profile?.weightUnit || 'lbs'}. Small daily wins add up! ⚖️`;
+      }
+      return `Fat loss is a marathon, not a sprint. Stay consistent!`;
+    }
+
+    // Default message based on phase
+    const phaseMessages = {
+      'Base': `Building your foundation in the ${currentPhase} phase. This sets you up for success!`,
+      'Build': `${currentPhase} phase - time to push your limits and grow stronger!`,
+      'Peak': `${currentPhase} phase - you're at your strongest. Time to perform!`,
+      'Deload': `Recovery week - your body adapts and grows during rest. Embrace it!`,
+    };
+
+    return phaseMessages[currentPhase] || `Week ${currentWeek} of ${totalWeeks} - keep showing up!`;
   };
 
-  // Calculate weekly trend
-  const getWeeklyTrend = () => {
-    const today = new Date();
-    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+  // Get today's summary
+  const getTodaySummary = () => {
+    const today = new Date().getDay() || 7;
+    const todaySchedule = program?.weeklySchedule?.find(d => d.day === today);
+    const isRestDay = todaySchedule?.isRestDay;
+    const sessions = todaySchedule?.sessions || [];
+    const completedToday = todaysWorkouts?.length || 0;
 
-    const thisWeekWorkouts = workouts?.filter(w => {
-      const date = new Date(w.loggedAt || w.completedAt);
-      return date >= weekAgo;
-    }).length || 0;
-
-    const twoWeeksAgo = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
-    const lastWeekWorkouts = workouts?.filter(w => {
-      const date = new Date(w.loggedAt || w.completedAt);
-      return date >= twoWeeksAgo && date < weekAgo;
-    }).length || 0;
-
-    if (thisWeekWorkouts > lastWeekWorkouts) return 'improving';
-    if (thisWeekWorkouts < lastWeekWorkouts) return 'declining';
-    return 'stable';
-  };
-
-  // Calculate how many workouts should be done by now this week
-  const getExpectedWorkoutsByNow = () => {
-    const targetDays = program?.daysPerWeek || profile?.desiredTrainingDays || 4;
-    const today = new Date();
-    const dayOfWeek = today.getDay() || 7; // 1=Mon, 7=Sun
-
-    // Estimate how many workouts should be done by this day
-    // Assuming workouts are spread evenly across the week
-    const workoutsPerDay = targetDays / 7;
-    return Math.floor(workoutsPerDay * dayOfWeek);
-  };
-
-  // Generate dynamic encouragement message
-  const getEncouragementMessage = () => {
-    const workoutStatus = getWorkoutAdherence();
-    const calorieStatus = getCalorieStatus();
-    const trend = getWeeklyTrend();
-    const expectedByNow = getExpectedWorkoutsByNow();
-    const workoutsBehind = expectedByNow - workoutStatus.count;
-
-    // Only show warning if at least 2 workouts behind schedule
-    if (workoutsBehind >= 2) {
-      return {
-        type: 'warning',
-        icon: AlertTriangle,
-        message: "You've missed some workouts this week. Let's get back on track! Your program will adjust to keep your goals realistic.",
-        color: 'text-yellow-400',
-        bgColor: 'bg-yellow-500/10',
-        borderColor: 'border-yellow-500/30'
-      };
-    }
-
-    // Check for overeating
-    if (calorieStatus.percentOfTarget > 120 && profile?.nutritionGoal === 'lose') {
-      return {
-        type: 'caution',
-        icon: Utensils,
-        message: "You're over your calorie target today. That's okay - one day won't derail you. Let's focus on getting back on track tomorrow!",
-        color: 'text-orange-400',
-        bgColor: 'bg-orange-500/10',
-        borderColor: 'border-orange-500/30'
-      };
-    }
-
-    // Great progress
-    if (workoutStatus.percentage >= 100 && trend === 'improving') {
-      return {
-        type: 'success',
-        icon: TrendingUp,
-        message: "You're crushing it! At this pace, you might exceed your initial goal. Keep it up!",
-        color: 'text-green-400',
-        bgColor: 'bg-green-500/10',
-        borderColor: 'border-green-500/30'
-      };
-    }
-
-    // On track
-    if (workoutStatus.percentage >= 75) {
-      return {
-        type: 'success',
-        icon: CheckCircle,
-        message: "You're on track! Keep this consistency and you'll reach your goal on schedule.",
-        color: 'text-green-400',
-        bgColor: 'bg-green-500/10',
-        borderColor: 'border-green-500/30'
-      };
-    }
-
-    // Needs attention
-    if (workoutStatus.percentage >= 50) {
-      return {
-        type: 'info',
-        icon: Target,
-        message: "You're making progress! A few more workouts this week and you'll be fully on track.",
-        color: 'text-blue-400',
-        bgColor: 'bg-blue-500/10',
-        borderColor: 'border-blue-500/30'
-      };
-    }
-
-    // Default encouraging message
     return {
-      type: 'neutral',
-      icon: Flame,
-      message: "Every workout counts! Your body adapts to consistency - let's build that habit together.",
-      color: 'text-accent-primary',
-      bgColor: 'bg-accent-primary/10',
-      borderColor: 'border-accent-primary/30'
+      isRestDay,
+      totalSessions: sessions.length,
+      completedSessions: completedToday,
+      sessionNames: sessions.map(s => s.focus).join(' + '),
     };
   };
 
-  const workoutStatus = getWorkoutAdherence();
-  const calorieStatus = getCalorieStatus();
-  const encouragement = getEncouragementMessage();
-  const EncouragementIcon = encouragement.icon;
+  // Calculate weekly progress
+  const getWeeklyProgress = () => {
+    const targetDays = program?.daysPerWeek || profile?.desiredTrainingDays || 4;
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
 
-  // Calculate goal progress percentage
-  const getGoalProgress = () => {
-    if (profile?.programType === 'fatloss' && profile?.targetWeight) {
-      const startWeight = parseFloat(profile.weight);
-      const targetWeight = parseFloat(profile.targetWeight);
-      const currentWeight = startWeight; // Would need weight tracking to update
-      const totalToLose = startWeight - targetWeight;
-      const lost = startWeight - currentWeight;
-      return Math.min((lost / totalToLose) * 100, 100);
-    }
-    // For other goals, show program progress
-    const totalWeeks = program?.mesocycleWeeks || 5;
-    const currentWeek = program?.currentWeek || 1;
-    return (currentWeek / totalWeeks) * 100;
+    const weekWorkouts = workouts?.filter(w => {
+      const date = new Date(w.loggedAt || w.completedAt);
+      return date >= startOfWeek && date <= today;
+    }) || [];
+
+    return {
+      completed: weekWorkouts.length,
+      target: targetDays,
+      percentage: Math.min((weekWorkouts.length / targetDays) * 100, 100),
+    };
   };
+
+  // Calculate nutrition today
+  const getNutritionSummary = () => {
+    const targetCalories = profile?.macros?.calories || profile?.tdee || 2000;
+    const consumed = todaysMeals?.reduce((sum, meal) => sum + (meal.calories || 0), 0) || 0;
+    const remaining = targetCalories - consumed;
+    const percentOfTarget = (consumed / targetCalories) * 100;
+
+    return {
+      consumed,
+      target: targetCalories,
+      remaining: Math.max(remaining, 0),
+      percentOfTarget,
+      mealsLogged: todaysMeals?.length || 0,
+    };
+  };
+
+  // Calculate program progress
+  const getProgramProgress = () => {
+    const currentWeek = program?.currentWeek || 1;
+    const totalWeeks = program?.mesocycleWeeks || 5;
+    return {
+      currentWeek,
+      totalWeeks,
+      percentage: (currentWeek / totalWeeks) * 100,
+      phase: program?.currentPhase || 'Base',
+    };
+  };
+
+  const daysUntil = getDaysUntilGoal();
+  const todaySummary = getTodaySummary();
+  const weeklyProgress = getWeeklyProgress();
+  const nutrition = getNutritionSummary();
+  const programProgress = getProgramProgress();
 
   return (
     <div className="bg-dark-800 rounded-xl border border-dark-600 overflow-hidden">
@@ -166,73 +160,104 @@ export function ProgressWidget({ profile, program, meals, workouts, todaysMeals,
       <div className="px-4 py-3 border-b border-dark-600">
         <h3 className="text-white font-semibold flex items-center gap-2">
           <Target className="w-5 h-5 text-accent-primary" />
-          Progress Tracker
+          Daily Summary
         </h3>
       </div>
 
-      {/* Encouragement Message */}
-      <div className={`mx-4 mt-4 p-3 rounded-lg ${encouragement.bgColor} border ${encouragement.borderColor}`}>
-        <div className="flex items-start gap-3">
-          <EncouragementIcon className={`w-5 h-5 mt-0.5 ${encouragement.color}`} />
-          <p className={`text-sm ${encouragement.color}`}>{encouragement.message}</p>
+      {/* Goal Countdown & Encouragement */}
+      <div className="mx-4 mt-4 p-4 rounded-lg bg-gradient-to-r from-accent-primary/20 to-accent-secondary/20 border border-accent-primary/30">
+        {daysUntil && (
+          <div className="flex items-center gap-3 mb-2">
+            <Calendar className="w-5 h-5 text-accent-primary" />
+            <span className="text-2xl font-bold text-white">{daysUntil}</span>
+            <span className="text-gray-300">days to go</span>
+          </div>
+        )}
+        <p className="text-sm text-gray-200">{getGoalMessage()}</p>
+      </div>
+
+      {/* Today's Workout Status */}
+      <div className="mx-4 mt-4 p-3 rounded-lg bg-dark-700">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Dumbbell className="w-5 h-5 text-accent-secondary" />
+            <span className="text-white font-medium">Today</span>
+          </div>
+          {todaySummary.isRestDay ? (
+            <span className="text-gray-400">🧘 Rest Day</span>
+          ) : (
+            <span className="text-gray-300">
+              {todaySummary.completedSessions}/{todaySummary.totalSessions} sessions
+            </span>
+          )}
         </div>
+        {!todaySummary.isRestDay && todaySummary.sessionNames && (
+          <p className="text-sm text-gray-400 mt-1 ml-7">{todaySummary.sessionNames}</p>
+        )}
       </div>
 
       {/* Stats Grid */}
       <div className="p-4 space-y-4">
-        {/* Workout Adherence */}
+        {/* Weekly Workouts */}
         <div>
           <div className="flex items-center justify-between text-sm mb-2">
-            <span className="text-gray-400">Workouts This Week</span>
+            <span className="text-gray-400 flex items-center gap-1">
+              <TrendingUp className="w-4 h-4" />
+              This Week
+            </span>
             <span className="text-white font-medium">
-              {workoutStatus.count}/{workoutStatus.target}
+              {weeklyProgress.completed}/{weeklyProgress.target} workouts
             </span>
           </div>
           <div className="h-2 bg-dark-600 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                workoutStatus.percentage >= 75 ? 'bg-green-500' :
-                workoutStatus.percentage >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-              }`}
-              style={{ width: `${workoutStatus.percentage}%` }}
+              className="h-full rounded-full transition-all duration-500 bg-accent-primary"
+              style={{ width: `${weeklyProgress.percentage}%` }}
             />
           </div>
         </div>
 
-        {/* Calorie Tracking */}
+        {/* Today's Nutrition */}
         <div>
           <div className="flex items-center justify-between text-sm mb-2">
-            <span className="text-gray-400">Today's Calories</span>
+            <span className="text-gray-400 flex items-center gap-1">
+              <Utensils className="w-4 h-4" />
+              Calories Today
+            </span>
             <span className={`font-medium ${
-              Math.abs(calorieStatus.difference) <= 100 ? 'text-green-400' :
-              calorieStatus.difference > 0 ? 'text-orange-400' : 'text-blue-400'
+              nutrition.percentOfTarget > 100 ? 'text-orange-400' : 'text-green-400'
             }`}>
-              {calorieStatus.consumed.toLocaleString()} / {calorieStatus.target.toLocaleString()}
+              {nutrition.consumed.toLocaleString()} / {nutrition.target.toLocaleString()}
             </span>
           </div>
           <div className="h-2 bg-dark-600 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
-                calorieStatus.percentOfTarget <= 105 ? 'bg-green-500' :
-                calorieStatus.percentOfTarget <= 120 ? 'bg-yellow-500' : 'bg-red-500'
+                nutrition.percentOfTarget <= 100 ? 'bg-green-500' : 'bg-orange-500'
               }`}
-              style={{ width: `${Math.min(calorieStatus.percentOfTarget, 100)}%` }}
+              style={{ width: `${Math.min(nutrition.percentOfTarget, 100)}%` }}
             />
           </div>
+          {nutrition.remaining > 0 && (
+            <p className="text-xs text-gray-500 mt-1">{nutrition.remaining} kcal remaining</p>
+          )}
         </div>
 
-        {/* Goal Progress */}
+        {/* Program Progress */}
         <div>
           <div className="flex items-center justify-between text-sm mb-2">
-            <span className="text-gray-400">Goal Progress</span>
+            <span className="text-gray-400 flex items-center gap-1">
+              <Flame className="w-4 h-4" />
+              {programProgress.phase} Phase
+            </span>
             <span className="text-white font-medium">
-              {Math.round(getGoalProgress())}%
+              Week {programProgress.currentWeek} of {programProgress.totalWeeks}
             </span>
           </div>
           <div className="h-2 bg-dark-600 rounded-full overflow-hidden">
             <div
-              className="h-full bg-accent-primary rounded-full transition-all duration-500"
-              style={{ width: `${getGoalProgress()}%` }}
+              className="h-full bg-accent-secondary rounded-full transition-all duration-500"
+              style={{ width: `${programProgress.percentage}%` }}
             />
           </div>
         </div>
