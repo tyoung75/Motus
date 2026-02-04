@@ -1,9 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronRight, ChevronLeft, User, Target, Dumbbell, Scale, Sparkles, Calendar, Plane, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../shared';
 import { calculateBMR, calculateTDEE, calculateMacros } from '../../utils/calculations';
 import { useAuth } from '../../context/AuthContext';
 import { generateProgram } from '../../utils/programGenerator';
+
+// Helper to get today's date in YYYY-MM-DD format for min date validation
+const getTodayString = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
 
 const STEPS = [
   { id: 1, title: 'Personal Info', icon: User },
@@ -14,7 +20,7 @@ const STEPS = [
   { id: 6, title: 'Generate', icon: Sparkles },
 ];
 
-// MECE Program categories
+// MECE Program categories (Fat Loss removed - handled via nutrition goal)
 const PROGRAM_TYPES = [
   {
     id: 'endurance',
@@ -22,8 +28,7 @@ const PROGRAM_TYPES = [
     description: 'Cardiovascular training - running, cycling, swimming',
     icon: '🏃',
     subtypes: [
-      { id: 'running', label: 'Running' },
-      { id: 'marathon', label: 'Marathon/Race Training' },
+      { id: 'running', label: 'Running (Race Training)' },
       { id: 'cycling', label: 'Cycling' },
       { id: 'swimming', label: 'Swimming' },
       { id: 'triathlon', label: 'Triathlon' },
@@ -51,17 +56,6 @@ const PROGRAM_TYPES = [
       { id: 'recomp', label: 'Body Recomposition' },
     ],
   },
-  {
-    id: 'fatloss',
-    title: 'Fat Loss',
-    description: 'Focused on losing fat while preserving muscle',
-    icon: '⚖️',
-    subtypes: [
-      { id: 'aggressive', label: 'Aggressive (1lb/week)' },
-      { id: 'moderate', label: 'Moderate (0.5lb/week)' },
-      { id: 'slow', label: 'Slow & Steady (0.25lb/week)' },
-    ],
-  },
 ];
 
 // Race distances for endurance goals
@@ -70,7 +64,15 @@ const RACE_DISTANCES = [
   { id: '10k', label: '10K', miles: 6.2 },
   { id: 'half', label: 'Half Marathon', miles: 13.1 },
   { id: 'full', label: 'Full Marathon', miles: 26.2 },
-  { id: 'ultra', label: 'Ultra Marathon', miles: 50 },
+  { id: 'ultra', label: 'Ultra Marathon', miles: null, requiresDistance: true },
+];
+
+// Baseline race distances (for calculating training paces)
+const BASELINE_RACE_DISTANCES = [
+  { id: '5k', label: '5K' },
+  { id: '10k', label: '10K' },
+  { id: 'half', label: 'Half Marathon' },
+  { id: 'full', label: 'Full Marathon' },
 ];
 
 // Triathlon distances
@@ -121,6 +123,7 @@ export function SetupWizard({ onComplete }) {
 
     // Endurance goals
     raceDistance: '',
+    ultraDistance: '', // Custom distance for ultra marathons (in miles)
     triathlonDistance: '',
     targetFinishTime: '',
     targetFinishHours: '',
@@ -204,11 +207,12 @@ export function SetupWizard({ onComplete }) {
   };
 
   const addVacation = () => {
+    const today = getTodayString();
     const newVacation = {
       id: Date.now(),
       name: '',
-      startDate: '',
-      endDate: '',
+      startDate: today, // Default to today so calendar opens at current date
+      endDate: today,   // Default end to same as start
     };
     updateFormData('vacations', [...formData.vacations, newVacation]);
   };
@@ -964,6 +968,26 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal }) {
                   </button>
                 ))}
               </div>
+
+              {/* Ultra Marathon custom distance input */}
+              {formData.raceDistance === 'ultra' && (
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Ultra Distance (miles)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.ultraDistance || ''}
+                    onChange={(e) => updateFormData('ultraDistance', e.target.value)}
+                    placeholder="e.g., 50, 100"
+                    min="30"
+                    className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Common distances: 50K (31mi), 50mi, 100K (62mi), 100mi
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>
@@ -971,6 +995,7 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal }) {
               <input
                 type="date"
                 value={formData.raceDate}
+                min={getTodayString()}
                 onChange={(e) => updateFormData('raceDate', e.target.value)}
                 className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white"
               />
@@ -1040,12 +1065,8 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal }) {
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-300 mb-2">Reference Race Distance</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: '5k', label: '5K' },
-                    { id: '10k', label: '10K' },
-                    { id: 'half', label: 'Half Marathon' },
-                  ].map((dist) => (
+                <div className="grid grid-cols-2 gap-2">
+                  {BASELINE_RACE_DISTANCES.map((dist) => (
                     <button
                       key={dist.id}
                       onClick={() => updateFormData('baselineRaceDistance', dist.id)}
@@ -1155,6 +1176,7 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal }) {
               <input
                 type="date"
                 value={formData.raceDate}
+                min={getTodayString()}
                 onChange={(e) => updateFormData('raceDate', e.target.value)}
                 className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white"
               />
@@ -1212,6 +1234,7 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal }) {
             <input
               type="date"
               value={formData.raceDate}
+              min={getTodayString()}
               onChange={(e) => updateFormData('raceDate', e.target.value)}
               className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white"
             />
@@ -1318,6 +1341,7 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal }) {
             <input
               type="date"
               value={formData.aestheticGoalDate}
+              min={getTodayString()}
               onChange={(e) => updateFormData('aestheticGoalDate', e.target.value)}
               className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white"
             />
@@ -1476,7 +1500,14 @@ function StepVacations({ formData, addVacation, updateVacation, removeVacation }
                   <input
                     type="date"
                     value={vacation.startDate}
-                    onChange={(e) => updateVacation(vacation.id, 'startDate', e.target.value)}
+                    min={getTodayString()}
+                    onChange={(e) => {
+                      updateVacation(vacation.id, 'startDate', e.target.value);
+                      // If end date is before new start date, update it
+                      if (vacation.endDate && vacation.endDate < e.target.value) {
+                        updateVacation(vacation.id, 'endDate', e.target.value);
+                      }
+                    }}
                     className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm"
                   />
                 </div>
@@ -1485,6 +1516,7 @@ function StepVacations({ formData, addVacation, updateVacation, removeVacation }
                   <input
                     type="date"
                     value={vacation.endDate}
+                    min={vacation.startDate || getTodayString()}
                     onChange={(e) => updateVacation(vacation.id, 'endDate', e.target.value)}
                     className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm"
                   />

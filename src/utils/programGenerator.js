@@ -832,7 +832,15 @@ function generateEnduranceSession(type, phase, isDeload, startingMileage, athlet
   const { multiplier, level } = athleteLevel;
 
   // Calculate this week's mileage based on progressive 5% max increase from starting point
-  const peakWeeklyMileage = level === 'elite' ? 60 : level === 'advanced' ? 50 : 40;
+  // Level-based peak mileage defaults
+  const levelBasedPeak = level === 'elite' ? 60 : level === 'advanced' ? 50 : 40;
+
+  // IMPORTANT: If user is already running higher mileage than level suggests,
+  // respect their current fitness! Don't drop someone from 55mi/week to 40mi.
+  // Allow 10-15% growth beyond current mileage as the new peak.
+  const userBasedPeak = startingMileage ? Math.round(startingMileage * 1.15) : levelBasedPeak;
+  const peakWeeklyMileage = Math.max(levelBasedPeak, userBasedPeak);
+
   const currentWeekMileage = calculateWeeklyMileage(totalWeeks, peakWeeklyMileage, weekNumber, phase, startingMileage);
 
   // Calculate long run cap based on what user has actually done
