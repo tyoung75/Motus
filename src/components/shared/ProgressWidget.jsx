@@ -48,14 +48,28 @@ export function ProgressWidget({ profile, program, meals, workouts, todaysMeals,
     return 'stable';
   };
 
+  // Calculate how many workouts should be done by now this week
+  const getExpectedWorkoutsByNow = () => {
+    const targetDays = program?.daysPerWeek || profile?.desiredTrainingDays || 4;
+    const today = new Date();
+    const dayOfWeek = today.getDay() || 7; // 1=Mon, 7=Sun
+
+    // Estimate how many workouts should be done by this day
+    // Assuming workouts are spread evenly across the week
+    const workoutsPerDay = targetDays / 7;
+    return Math.floor(workoutsPerDay * dayOfWeek);
+  };
+
   // Generate dynamic encouragement message
   const getEncouragementMessage = () => {
     const workoutStatus = getWorkoutAdherence();
     const calorieStatus = getCalorieStatus();
     const trend = getWeeklyTrend();
+    const expectedByNow = getExpectedWorkoutsByNow();
+    const workoutsBehind = expectedByNow - workoutStatus.count;
 
-    // Check for missed workouts
-    if (workoutStatus.count < workoutStatus.target * 0.5) {
+    // Only show warning if at least 2 workouts behind schedule
+    if (workoutsBehind >= 2) {
       return {
         type: 'warning',
         icon: AlertTriangle,
