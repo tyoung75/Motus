@@ -1,5 +1,6 @@
 // Comprehensive Program Generator
 // Creates personalized workout programs scaled for athlete level and goal timeline
+// Tailored for top 10% athletes with realistic progression (max 5% volume increase/week)
 
 // ============ ATHLETE LEVEL CALCULATION ============
 
@@ -33,7 +34,6 @@ function calculateAthleteLevel(formData) {
 function calculateProgramLength(formData) {
   const { raceDate, aestheticGoalDate, targetDate, programType, programSubtype } = formData;
 
-  // Get target date
   let goalDate = null;
   if (raceDate) goalDate = new Date(raceDate);
   else if (aestheticGoalDate) goalDate = new Date(aestheticGoalDate);
@@ -43,13 +43,11 @@ function calculateProgramLength(formData) {
     const today = new Date();
     const weeksUntilGoal = Math.ceil((goalDate - today) / (1000 * 60 * 60 * 24 * 7));
 
-    // Cap at reasonable ranges
     if (weeksUntilGoal > 52) return { totalWeeks: 52, weeksUntilGoal };
     if (weeksUntilGoal < 4) return { totalWeeks: 4, weeksUntilGoal };
     return { totalWeeks: weeksUntilGoal, weeksUntilGoal };
   }
 
-  // Default program lengths by type
   const defaults = {
     endurance: { marathon: 16, triathlon: 20, running: 12, cycling: 12, swimming: 12 },
     strength: { powerlifting: 12, olympic: 16, strongman: 12 },
@@ -67,7 +65,6 @@ function generatePeriodizationPhases(totalWeeks, programType, programSubtype) {
   const phases = [];
 
   if (programType === 'endurance' && (programSubtype === 'marathon' || programSubtype === 'triathlon')) {
-    // Marathon/Triathlon periodization with taper
     const baseWeeks = Math.floor(totalWeeks * 0.25);
     const build1Weeks = Math.floor(totalWeeks * 0.25);
     const build2Weeks = Math.floor(totalWeeks * 0.25);
@@ -80,8 +77,7 @@ function generatePeriodizationPhases(totalWeeks, programType, programSubtype) {
     for (let i = 0; i < peakWeeks; i++) phases.push('Peak');
     for (let i = 0; i < taperWeeks; i++) phases.push('Taper');
   } else {
-    // Standard periodization with deloads every 4-5 weeks
-    const cycleLength = 4; // 3 hard weeks + 1 deload
+    const cycleLength = 4;
     let currentWeek = 0;
 
     while (currentWeek < totalWeeks) {
@@ -104,37 +100,94 @@ function generatePeriodizationPhases(totalWeeks, programType, programSubtype) {
   return phases;
 }
 
-// ============ EXERCISE DATABASE ============
+// ============ RUNNING PACE CALCULATOR ============
 
-const STRENGTH_EXERCISES = {
-  squat: { name: 'Back Squat', muscle: 'legs', type: 'compound', equipment: 'barbell' },
-  frontSquat: { name: 'Front Squat', muscle: 'legs', type: 'compound', equipment: 'barbell' },
-  deadlift: { name: 'Deadlift', muscle: 'posterior', type: 'compound', equipment: 'barbell' },
-  romanianDeadlift: { name: 'Romanian Deadlift', muscle: 'posterior', type: 'compound', equipment: 'barbell' },
-  benchPress: { name: 'Bench Press', muscle: 'chest', type: 'compound', equipment: 'barbell' },
-  inclineBench: { name: 'Incline Bench Press', muscle: 'chest', type: 'compound', equipment: 'barbell' },
-  overheadPress: { name: 'Overhead Press', muscle: 'shoulders', type: 'compound', equipment: 'barbell' },
-  barbellRow: { name: 'Barbell Row', muscle: 'back', type: 'compound', equipment: 'barbell' },
-  pullUp: { name: 'Pull-ups', muscle: 'back', type: 'compound', equipment: 'bodyweight' },
-  chinUp: { name: 'Chin-ups', muscle: 'back', type: 'compound', equipment: 'bodyweight' },
-  dip: { name: 'Weighted Dips', muscle: 'chest', type: 'compound', equipment: 'bodyweight' },
-  latPulldown: { name: 'Lat Pulldown', muscle: 'back', type: 'isolation', equipment: 'cable' },
-  cableRow: { name: 'Seated Cable Row', muscle: 'back', type: 'isolation', equipment: 'cable' },
-  facePull: { name: 'Face Pulls', muscle: 'rear-delts', type: 'isolation', equipment: 'cable' },
-  lateralRaise: { name: 'Lateral Raises', muscle: 'shoulders', type: 'isolation', equipment: 'dumbbell' },
-  bicepCurl: { name: 'Barbell Curls', muscle: 'biceps', type: 'isolation', equipment: 'barbell' },
-  hammerCurl: { name: 'Hammer Curls', muscle: 'biceps', type: 'isolation', equipment: 'dumbbell' },
-  tricepPushdown: { name: 'Tricep Pushdowns', muscle: 'triceps', type: 'isolation', equipment: 'cable' },
-  skullCrusher: { name: 'Skull Crushers', muscle: 'triceps', type: 'isolation', equipment: 'barbell' },
-  legPress: { name: 'Leg Press', muscle: 'legs', type: 'compound', equipment: 'machine' },
-  legCurl: { name: 'Leg Curls', muscle: 'hamstrings', type: 'isolation', equipment: 'machine' },
-  legExtension: { name: 'Leg Extensions', muscle: 'quads', type: 'isolation', equipment: 'machine' },
-  calfRaise: { name: 'Standing Calf Raises', muscle: 'calves', type: 'isolation', equipment: 'machine' },
-  chestFly: { name: 'Cable Chest Fly', muscle: 'chest', type: 'isolation', equipment: 'cable' },
-  rearDeltFly: { name: 'Rear Delt Fly', muscle: 'rear-delts', type: 'isolation', equipment: 'dumbbell' },
-  hangingLegRaise: { name: 'Hanging Leg Raises', muscle: 'core', type: 'isolation', equipment: 'bodyweight' },
-  cableCrunch: { name: 'Cable Crunches', muscle: 'core', type: 'isolation', equipment: 'cable' },
-};
+function calculatePaces(targetFinishTime, raceDistance) {
+  // Parse target time
+  let targetMinutes = 0;
+  if (targetFinishTime) {
+    const parts = targetFinishTime.split(':').map(Number);
+    if (parts.length === 3) {
+      targetMinutes = parts[0] * 60 + parts[1] + parts[2] / 60;
+    } else if (parts.length === 2) {
+      targetMinutes = parts[0] * 60 + parts[1];
+    }
+  }
+
+  // Race distances in miles
+  const distances = {
+    '5k': 3.1,
+    '10k': 6.2,
+    'half': 13.1,
+    'full': 26.2,
+    'ultra': 50,
+  };
+
+  const miles = distances[raceDistance] || 26.2;
+  const goalPace = targetMinutes > 0 ? targetMinutes / miles : null;
+
+  // Calculate training paces based on goal pace
+  // For a 3:30 marathon (8:00/mile goal pace):
+  // Easy: +1:30-2:00 per mile (9:30-10:00)
+  // Tempo: -0:30-1:00 per mile (7:00-7:30)
+  // Interval: -1:00-1:30 per mile (6:30-7:00)
+  // Long: +0:30-1:00 per mile (8:30-9:00)
+
+  if (goalPace) {
+    return {
+      goalPace: formatPace(goalPace),
+      easyPace: formatPace(goalPace + 1.5) + ' - ' + formatPace(goalPace + 2),
+      tempoPace: formatPace(goalPace - 0.75) + ' - ' + formatPace(goalPace - 0.5),
+      intervalPace: formatPace(goalPace - 1.25) + ' - ' + formatPace(goalPace - 1),
+      longRunPace: formatPace(goalPace + 0.5) + ' - ' + formatPace(goalPace + 1),
+      recoveryPace: formatPace(goalPace + 2) + ' - ' + formatPace(goalPace + 2.5),
+    };
+  }
+
+  // Default paces for top 10% athletes (sub-3:30 marathon capability)
+  return {
+    goalPace: '8:00/mi',
+    easyPace: '9:30-10:00/mi',
+    tempoPace: '7:00-7:30/mi',
+    intervalPace: '6:30-7:00/mi',
+    longRunPace: '8:30-9:00/mi',
+    recoveryPace: '10:00-10:30/mi',
+  };
+}
+
+function formatPace(decimalMinutes) {
+  const mins = Math.floor(decimalMinutes);
+  const secs = Math.round((decimalMinutes - mins) * 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}/mi`;
+}
+
+// ============ MILEAGE PROGRESSION CALCULATOR ============
+// Max 5% increase per week, working backward from peak mileage
+
+function calculateWeeklyMileage(totalWeeks, peakMileage, currentWeek, phase) {
+  // Peak mileage occurs 2-3 weeks before race (during Peak phase)
+  // Then taper down 20-30% per week
+  // Work backward to find starting mileage using max 5% weekly increase
+
+  const weeksToBuildup = Math.floor(totalWeeks * 0.85); // 85% of program is building
+  const maxWeeklyIncrease = 0.05; // 5% max
+
+  // Calculate starting mileage that allows reaching peak with 5% increases
+  const startingMileage = peakMileage / Math.pow(1 + maxWeeklyIncrease, weeksToBuildup);
+
+  // Apply phase-specific adjustments
+  if (phase === 'Taper') {
+    return Math.round(peakMileage * 0.6); // 40% reduction for taper
+  }
+
+  if (phase === 'Deload') {
+    return Math.round(startingMileage * Math.pow(1 + maxWeeklyIncrease, currentWeek - 1) * 0.7);
+  }
+
+  // Progressive increase (max 5% per week)
+  const weekMileage = startingMileage * Math.pow(1 + maxWeeklyIncrease, currentWeek - 1);
+  return Math.min(Math.round(weekMileage), peakMileage);
+}
 
 // ============ WORKOUT TEMPLATES ============
 
@@ -246,20 +299,19 @@ function distributeWorkoutDays(daysPerWeek) {
   return distributions[daysPerWeek] || distributions[4];
 }
 
-// ============ EXERCISE GENERATORS (SCALED FOR ATHLETE LEVEL) ============
+// ============ EXERCISE GENERATORS ============
 
-function generateStrengthExercises(focus, phase, isDeload, athleteLevel) {
+function generateStrengthExercises(focus, phase, isDeload, athleteLevel, weekNumber) {
   const exercises = [];
   const { multiplier, level } = athleteLevel;
 
-  // Scale volume and intensity based on athlete level
   const volumeBase = isDeload ? 0.5 : (phase === 'Build' ? 1.1 : 1.0);
   const volumeMultiplier = volumeBase * multiplier;
-
-  // Advanced athletes work at higher RPE
   const rpeBase = isDeload ? 5 : (level === 'elite' ? 9 : level === 'advanced' ? 8.5 : level === 'intermediate' ? 8 : 7);
 
-  // Rep ranges shift lower for advanced (more intensity-focused)
+  // Progressive overload tracking
+  const weekProgression = Math.floor((weekNumber - 1) / 4); // Progress every 4 weeks
+
   const getRepRange = (baseReps) => {
     if (level === 'elite') return baseReps.replace(/(\d+)-(\d+)/, (_, min, max) => `${Math.max(1, parseInt(min)-2)}-${parseInt(max)-2}`);
     if (level === 'advanced') return baseReps.replace(/(\d+)-(\d+)/, (_, min, max) => `${Math.max(1, parseInt(min)-1)}-${parseInt(max)-1}`);
@@ -274,7 +326,7 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel) {
       rpe: rpeBase,
       rest: level === 'elite' ? '4-5 min' : '3-4 min',
       notes: level === 'elite' ? 'Competition depth, pause at bottom' : 'Control descent, drive through heels',
-      progression: 'Add 5lbs when all reps completed at target RPE',
+      progression: `Week ${weekNumber}: +${weekProgression * 5}lbs from starting weight. Add 5lbs when all reps hit at RPE ${rpeBase}`,
     });
 
     if (level === 'advanced' || level === 'elite') {
@@ -285,7 +337,7 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel) {
         rpe: rpeBase - 1,
         rest: '3-4 min',
         notes: '2-3 second pause in the hole',
-        progression: 'Increase pause duration before adding weight',
+        progression: `Accessory: increase when main squat increases`,
       });
     }
   }
@@ -298,7 +350,7 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel) {
       rpe: rpeBase,
       rest: level === 'elite' ? '4-5 min' : '3-4 min',
       notes: level === 'elite' ? 'Competition pause, leg drive, tight arch' : 'Arch back, retract scapula',
-      progression: 'Add 2.5lbs when all reps completed at target RPE',
+      progression: `Week ${weekNumber}: +${weekProgression * 2.5}lbs from starting weight. Add 2.5lbs when all reps hit at RPE ${rpeBase}`,
     });
 
     if (level === 'advanced' || level === 'elite') {
@@ -309,7 +361,7 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel) {
         rpe: rpeBase - 1,
         rest: '3 min',
         notes: 'Tricep focus, elbows tucked',
-        progression: 'Match your competition bench progress',
+        progression: `Keep ~70% of competition bench`,
       });
     }
   }
@@ -322,7 +374,7 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel) {
       rpe: rpeBase,
       rest: level === 'elite' ? '5-6 min' : '4-5 min',
       notes: level === 'elite' ? 'Competition setup, maximal brace' : 'Brace core, hinge at hips',
-      progression: 'Add 5-10lbs when all reps completed at target RPE',
+      progression: `Week ${weekNumber}: +${weekProgression * 10}lbs from starting weight. Add 5-10lbs when all reps hit at RPE ${rpeBase}`,
     });
 
     if (level === 'advanced' || level === 'elite') {
@@ -333,7 +385,7 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel) {
         rpe: rpeBase - 1,
         rest: '4 min',
         notes: '2-3 inch deficit, focus on speed off floor',
-        progression: 'Build to 85% of comp deadlift',
+        progression: `Keep at 80-85% of comp deadlift`,
       });
     }
   }
@@ -346,7 +398,7 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel) {
       rpe: rpeBase,
       rest: '2-3 min',
       notes: 'Squeeze glutes, press straight up',
-      progression: 'Add 2.5lbs when all reps completed',
+      progression: `Week ${weekNumber}: +${weekProgression * 2.5}lbs. Add 2.5lbs when all reps complete`,
     });
   }
 
@@ -358,7 +410,7 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel) {
       rpe: rpeBase - 1,
       rest: '2-3 min',
       notes: level === 'elite' ? 'Explosive pull, controlled negative' : 'Pull to lower chest, squeeze at top',
-      progression: 'Add 5lbs when form stays solid',
+      progression: `Add 5lbs every 2 weeks when form stays solid`,
     });
 
     exercises.push({
@@ -368,11 +420,10 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel) {
       rpe: rpeBase - 1,
       rest: '2-3 min',
       notes: 'Add weight as needed, full ROM',
-      progression: 'Add 2.5-5lbs when hitting top of rep range',
+      progression: `Add 2.5-5lbs when hitting top of rep range`,
     });
   }
 
-  // Accessories scaled for level
   if (focus.includes('triceps')) {
     exercises.push({
       name: level === 'elite' ? 'JM Press' : 'Tricep Pushdowns',
@@ -381,7 +432,7 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 7,
       rest: '90s',
       notes: level === 'elite' ? 'Bench accessory, lockout strength' : 'Keep elbows pinned',
-      progression: 'Increase weight when 12 reps feels easy',
+      progression: `Add reps first (8→12), then add 5lbs and reset to 8 reps`,
     });
   }
 
@@ -393,7 +444,7 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 7,
       rest: '90s',
       notes: 'Full range of motion, no swinging',
-      progression: 'Increase weight when 12 reps feels easy',
+      progression: `Add reps first (8→12), then add 5lbs and reset to 8 reps`,
     });
   }
 
@@ -405,14 +456,14 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 7,
       rest: '60s',
       notes: 'Control the movement, no swinging',
-      progression: 'Add weight when hitting top of rep range',
+      progression: `Add weight (hold DB) when hitting 15 reps`,
     });
   }
 
   return exercises;
 }
 
-function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
+function generateAestheticExercises(focus, phase, isDeload, athleteLevel, weekNumber) {
   const exercises = [];
   const { multiplier, level } = athleteLevel;
 
@@ -420,24 +471,28 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
   const volumeMultiplier = volumeBase * multiplier;
   const rpeBase = isDeload ? 5 : (level === 'elite' ? 9 : level === 'advanced' ? 8.5 : 8);
 
+  // Progressive overload: add reps each week, then weight
+  const weekInCycle = ((weekNumber - 1) % 4) + 1;
+  const repBonus = weekInCycle - 1; // 0, 1, 2, 0 (deload resets)
+
   if (focus.includes('chest')) {
     exercises.push({
       name: 'Bench Press',
       sets: Math.round(4 * volumeMultiplier),
-      reps: level === 'elite' ? '6-8' : '8-10',
+      reps: `${8 + repBonus}-${10 + repBonus}`,
       rpe: rpeBase,
       rest: '2-3 min',
       notes: 'Focus on chest contraction',
-      progression: 'Add weight or reps each week',
+      progression: `Week ${weekInCycle}/4: ${repBonus === 0 ? 'Base reps' : `+${repBonus} reps from base`}. Add 5lbs at week 4 if all reps hit`,
     });
     exercises.push({
       name: 'Incline Dumbbell Press',
       sets: Math.round(4 * volumeMultiplier),
-      reps: '8-12',
+      reps: `${8 + repBonus}-${12 + repBonus}`,
       rpe: rpeBase - 1,
       rest: '90s',
       notes: '30-45 degree incline, control the negative',
-      progression: 'Increase weight when 12 reps feels easy',
+      progression: `Progressive overload: reps → weight → reps`,
     });
     exercises.push({
       name: 'Cable Chest Fly',
@@ -446,7 +501,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 7,
       rest: '60s',
       notes: 'Squeeze hard at contraction',
-      progression: 'Add 1 rep per session',
+      progression: `Isolation: focus on mind-muscle connection over weight`,
     });
 
     if (level === 'advanced' || level === 'elite') {
@@ -457,7 +512,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
         rpe: 8,
         rest: '2 min',
         notes: 'Lean forward for chest emphasis',
-        progression: 'Add 5lbs when hitting 12 reps',
+        progression: `Add 5lbs when hitting 12 reps`,
       });
     }
   }
@@ -466,20 +521,20 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
     exercises.push({
       name: 'Weighted Pull-ups',
       sets: Math.round(4 * volumeMultiplier),
-      reps: level === 'elite' ? '6-8' : '6-10',
+      reps: `${6 + Math.floor(repBonus/2)}-${10 + Math.floor(repBonus/2)}`,
       rpe: rpeBase,
       rest: '2-3 min',
       notes: 'Full stretch at bottom, chin over bar',
-      progression: 'Add weight when 10 reps is easy',
+      progression: `Add 2.5lbs when hitting top of rep range consistently`,
     });
     exercises.push({
       name: 'Barbell Row',
       sets: Math.round(4 * volumeMultiplier),
-      reps: '6-10',
+      reps: `${6 + repBonus}-${10 + repBonus}`,
       rpe: rpeBase - 1,
       rest: '2 min',
       notes: 'Squeeze lats at top',
-      progression: 'Add 5lbs when form is solid',
+      progression: `Add 5lbs when form stays solid at top reps`,
     });
     exercises.push({
       name: 'Lat Pulldown',
@@ -488,7 +543,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 7,
       rest: '90s',
       notes: 'Drive elbows down, chest up',
-      progression: 'Increase weight when 12 reps feels easy',
+      progression: `Focus on stretch and contraction over weight`,
     });
     exercises.push({
       name: 'Seated Cable Row',
@@ -497,7 +552,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 7,
       rest: '90s',
       notes: 'Pull to lower chest, squeeze',
-      progression: 'Add weight when form is solid',
+      progression: `Add weight when form is solid`,
     });
   }
 
@@ -509,7 +564,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: rpeBase,
       rest: '2-3 min',
       notes: 'Strict form, no leg drive',
-      progression: 'Add 2.5lbs when all reps completed',
+      progression: `Add 2.5lbs when all reps completed`,
     });
     exercises.push({
       name: 'Lateral Raises',
@@ -518,7 +573,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 7,
       rest: '60s',
       notes: 'Lead with elbows, control the negative',
-      progression: 'Add 1 rep then increase weight',
+      progression: `Add 1 rep per week, then increase weight`,
     });
 
     if (level === 'advanced' || level === 'elite') {
@@ -529,7 +584,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
         rpe: 8,
         rest: '45s',
         notes: 'Constant tension, squeeze at top',
-        progression: 'Drop sets on final set',
+        progression: `Drop sets on final set for extra stimulus`,
       });
     }
   }
@@ -542,7 +597,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: rpeBase,
       rest: '3 min',
       notes: 'ATG depth if mobility allows',
-      progression: 'Add 5lbs when all reps completed',
+      progression: `Add 5lbs when all reps completed at target RPE`,
     });
     exercises.push({
       name: 'Romanian Deadlift',
@@ -551,7 +606,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: rpeBase - 1,
       rest: '2 min',
       notes: 'Feel the hamstring stretch',
-      progression: 'Add 5lbs when form is solid',
+      progression: `Add 5lbs when form is solid at 12 reps`,
     });
     exercises.push({
       name: 'Leg Press',
@@ -560,7 +615,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 8,
       rest: '2 min',
       notes: 'Full range of motion',
-      progression: 'Increase weight when 15 reps feels easy',
+      progression: `Volume work: push the reps before weight`,
     });
     exercises.push({
       name: 'Leg Curls',
@@ -569,7 +624,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 7,
       rest: '60s',
       notes: 'Squeeze at top, slow negative',
-      progression: 'Add reps then weight',
+      progression: `Focus on contraction quality`,
     });
     exercises.push({
       name: 'Standing Calf Raises',
@@ -578,7 +633,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 8,
       rest: '60s',
       notes: 'Full stretch at bottom, pause at top',
-      progression: 'Add weight when 15 reps is easy',
+      progression: `Calves respond to frequency - hit 3x/week if lagging`,
     });
   }
 
@@ -590,7 +645,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 8,
       rest: '90s',
       notes: 'No swinging, squeeze at top',
-      progression: 'Add weight when 12 reps is easy',
+      progression: `Add reps first, then weight`,
     });
     exercises.push({
       name: 'Hammer Curls',
@@ -599,7 +654,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 7,
       rest: '60s',
       notes: 'Control throughout',
-      progression: 'Add reps then weight',
+      progression: `Brachialis focus - great for arm thickness`,
     });
   }
 
@@ -611,7 +666,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 8,
       rest: '90s',
       notes: 'Lock out at bottom',
-      progression: 'Add weight when 12 reps is easy',
+      progression: `Add weight when 12 reps is easy`,
     });
     exercises.push({
       name: 'Overhead Tricep Extension',
@@ -620,7 +675,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 7,
       rest: '60s',
       notes: 'Feel the stretch at bottom',
-      progression: 'Add reps then weight',
+      progression: `Long head focus - crucial for tricep size`,
     });
   }
 
@@ -632,7 +687,7 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 7,
       rest: '60s',
       notes: 'External rotation at top',
-      progression: 'Add reps before weight',
+      progression: `Health exercise: keep light, focus on form`,
     });
   }
 
@@ -644,148 +699,179 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel) {
       rpe: 8,
       rest: '60s',
       notes: 'Control the movement',
-      progression: 'Add weight when hitting 15 reps',
+      progression: `Add weight (hold DB) when hitting 15 reps`,
     });
   }
 
   return exercises;
 }
 
-function generateEnduranceSession(type, phase, isDeload, weeklyMileage, athleteLevel) {
+function generateEnduranceSession(type, phase, isDeload, weeklyMileage, athleteLevel, paces, weekNumber, totalWeeks) {
   const { multiplier, level } = athleteLevel;
-  const baseMileage = (weeklyMileage || 20) * multiplier;
 
-  // Advanced athletes get more volume and intensity
-  const intensityMultiplier = isDeload ? 0.5 :
-    (phase === 'Peak' || phase === 'Build 2') ? (1.15 * multiplier) :
-    (phase === 'Build' || phase === 'Build 1') ? (1.1 * multiplier) :
-    multiplier;
+  // Calculate this week's mileage based on progressive 5% max increase
+  const peakWeeklyMileage = level === 'elite' ? 60 : level === 'advanced' ? 50 : 40;
+  const currentWeekMileage = calculateWeeklyMileage(totalWeeks, peakWeeklyMileage, weekNumber, phase);
+
+  // Phase-specific adjustments
+  const phaseMultiplier = phase === 'Taper' ? 0.6 : phase === 'Peak' ? 1.1 : phase.includes('Build') ? 1.0 : 0.85;
 
   switch (type) {
-    case 'Easy Run':
+    case 'Easy Run': {
+      const miles = Math.round(currentWeekMileage * 0.2 * phaseMultiplier * 10) / 10;
       return {
         name: 'Easy Run',
-        duration: Math.round(45 * intensityMultiplier),
+        duration: Math.round(miles * 10), // ~10 min/mile for easy
         exercises: [{
           name: 'Easy Run',
           sets: 1,
-          reps: `${Math.round(5 * intensityMultiplier)} miles`,
-          rpe: 5,
+          reps: `${miles} miles`,
+          pace: paces.easyPace,
+          heartRateZone: 'Zone 2 (65-75% max HR)',
+          rpe: 4,
           rest: 'N/A',
-          notes: level === 'elite' ? 'Zone 2, maintain 65-70% max HR' : 'Conversational pace, Zone 2',
-          progression: 'Add 0.5 miles every 2 weeks',
+          notes: 'Should be able to hold a conversation. If breathing hard, slow down.',
+          progression: `Week ${weekNumber}: ${miles} mi. Max 5% increase per week.`,
         }],
       };
+    }
 
-    case 'Tempo Run':
-      const tempoMinutes = level === 'elite' ? 30 : level === 'advanced' ? 25 : 20;
+    case 'Tempo Run': {
+      const warmupMiles = 1.5;
+      const tempoMiles = Math.round(currentWeekMileage * 0.15 * phaseMultiplier * 10) / 10;
+      const cooldownMiles = 1;
       return {
         name: 'Tempo Run',
-        duration: Math.round(50 * intensityMultiplier),
-        exercises: [
-          {
-            name: 'Warm-up Jog',
-            sets: 1,
-            reps: '15 min',
-            rpe: 5,
-            rest: 'N/A',
-            notes: 'Include strides',
-          },
-          {
-            name: 'Tempo Effort',
-            sets: 1,
-            reps: `${Math.round(tempoMinutes * intensityMultiplier)} min`,
-            rpe: level === 'elite' ? 8 : 7,
-            rest: 'N/A',
-            notes: level === 'elite' ? 'Threshold pace, ~85% max HR' : 'Comfortably hard',
-            progression: 'Add 2-3 min tempo every 2 weeks',
-          },
-          {
-            name: 'Cool-down Jog',
-            sets: 1,
-            reps: '10 min',
-            rpe: 4,
-            rest: 'N/A',
-            notes: 'Very easy pace',
-          },
-        ],
-      };
-
-    case 'Intervals':
-      const intervals = level === 'elite' ? 10 : level === 'advanced' ? 8 : 6;
-      return {
-        name: 'Interval Training',
-        duration: Math.round(55 * intensityMultiplier),
+        duration: Math.round((warmupMiles + tempoMiles + cooldownMiles) * 9),
         exercises: [
           {
             name: 'Warm-up',
             sets: 1,
-            reps: '15 min',
-            rpe: 5,
+            reps: `${warmupMiles} miles`,
+            pace: paces.easyPace,
+            heartRateZone: 'Zone 2',
+            rpe: 4,
             rest: 'N/A',
-            notes: 'Include dynamic stretches and strides',
+            notes: 'Include 4x100m strides at end',
           },
           {
-            name: level === 'elite' ? '800m Repeats' : '400m Repeats',
-            sets: isDeload ? Math.floor(intervals / 2) : Math.round(intervals * (phase === 'Peak' ? 1.2 : 1)),
-            reps: level === 'elite' ? '800m @ 5K pace' : '400m fast',
-            rpe: 9,
-            rest: level === 'elite' ? '2 min jog' : '90s jog',
-            notes: 'Consistent pace each rep, negative split if possible',
-            progression: 'Add 1 rep every 2 weeks or reduce rest',
+            name: 'Tempo',
+            sets: 1,
+            reps: `${tempoMiles} miles`,
+            pace: paces.tempoPace,
+            heartRateZone: 'Zone 3-4 (80-88% max HR)',
+            rpe: 7,
+            rest: 'N/A',
+            notes: 'Comfortably hard - can speak in short sentences only',
+            progression: `Week ${weekNumber}: ${tempoMiles} mi tempo. Lactate threshold training.`,
           },
           {
             name: 'Cool-down',
             sets: 1,
-            reps: '10 min',
-            rpe: 4,
+            reps: `${cooldownMiles} miles`,
+            pace: paces.recoveryPace,
+            heartRateZone: 'Zone 1-2',
+            rpe: 3,
             rest: 'N/A',
-            notes: 'Easy jog + stretching',
+            notes: 'Very easy, let HR come down',
           },
         ],
       };
+    }
 
-    case 'Long Run':
-      const longRunMiles = level === 'elite' ? baseMileage * 0.35 : baseMileage * 0.3;
+    case 'Intervals': {
+      const intervalCount = level === 'elite' ? 8 : level === 'advanced' ? 6 : 5;
+      const intervalDistance = level === 'elite' ? '800m' : '400m';
+      const adjustedCount = isDeload ? Math.floor(intervalCount / 2) :
+                           phase === 'Peak' ? intervalCount + 2 : intervalCount;
+      return {
+        name: 'Interval Training',
+        duration: 55,
+        exercises: [
+          {
+            name: 'Warm-up',
+            sets: 1,
+            reps: '1.5 miles',
+            pace: paces.easyPace,
+            heartRateZone: 'Zone 2',
+            rpe: 4,
+            rest: 'N/A',
+            notes: 'Include dynamic stretches and 4x100m strides',
+          },
+          {
+            name: `${intervalDistance} Repeats`,
+            sets: adjustedCount,
+            reps: intervalDistance,
+            pace: paces.intervalPace,
+            heartRateZone: 'Zone 4-5 (88-95% max HR)',
+            rpe: 9,
+            rest: level === 'elite' ? '2:00 jog' : '1:30 jog',
+            notes: `Consistent pace each rep. Target ${paces.intervalPace}`,
+            progression: `Week ${weekNumber}: ${adjustedCount}x${intervalDistance}. Add 1 rep every 2-3 weeks.`,
+          },
+          {
+            name: 'Cool-down',
+            sets: 1,
+            reps: '1 mile',
+            pace: paces.recoveryPace,
+            heartRateZone: 'Zone 1',
+            rpe: 3,
+            rest: 'N/A',
+            notes: 'Easy jog + static stretching',
+          },
+        ],
+      };
+    }
+
+    case 'Long Run': {
+      const longRunMiles = Math.round(currentWeekMileage * 0.30 * phaseMultiplier * 10) / 10;
+      const maxLongRun = level === 'elite' ? 22 : level === 'advanced' ? 20 : 18;
+      const cappedMiles = Math.min(longRunMiles, maxLongRun);
       return {
         name: 'Long Run',
-        duration: Math.round(100 * intensityMultiplier),
+        duration: Math.round(cappedMiles * 9.5),
         exercises: [{
           name: 'Long Run',
           sets: 1,
-          reps: `${Math.round(longRunMiles * intensityMultiplier)} miles`,
+          reps: `${cappedMiles} miles`,
+          pace: paces.longRunPace,
+          heartRateZone: 'Zone 2 (start) → Zone 3 (finish)',
           rpe: 6,
           rest: 'N/A',
-          notes: level === 'elite'
-            ? 'Practice race nutrition, last 3 miles at marathon pace'
-            : 'Steady, comfortable pace - practice race nutrition',
-          progression: 'Add 1 mile per week (max 10% increase)',
+          notes: phase === 'Peak'
+            ? `Practice race nutrition. Last 3mi at ${paces.goalPace} (goal pace)`
+            : 'Practice race nutrition. Keep even effort throughout.',
+          progression: `Week ${weekNumber}: ${cappedMiles} mi. Peak long run: ${maxLongRun}mi. Max 1mi increase/week.`,
         }],
       };
+    }
 
-    case 'Recovery Run':
+    case 'Recovery Run': {
       return {
         name: 'Recovery Run',
         duration: 30,
         exercises: [{
           name: 'Recovery Run',
           sets: 1,
-          reps: '30 min',
-          rpe: 4,
+          reps: '3-4 miles',
+          pace: paces.recoveryPace,
+          heartRateZone: 'Zone 1 (60-65% max HR)',
+          rpe: 3,
           rest: 'N/A',
-          notes: 'Very easy, shake out legs',
-          progression: 'Keep easy, dont increase',
+          notes: 'Truly easy. This should feel almost too slow. Promotes recovery.',
+          progression: 'Keep consistent - dont increase recovery run distance',
         }],
       };
+    }
 
     default:
       return {
         name: type,
-        duration: Math.round(45 * intensityMultiplier),
+        duration: 45,
         exercises: [{
           name: type,
           sets: 1,
-          reps: `${Math.round(45 * intensityMultiplier)} min`,
+          reps: '45 min',
           rpe: 6,
           rest: 'N/A',
           notes: 'Moderate steady effort',
@@ -794,11 +880,10 @@ function generateEnduranceSession(type, phase, isDeload, weeklyMileage, athleteL
   }
 }
 
-function generateFatLossSession(dayFocus, phase, isDeload, athleteLevel) {
+function generateFatLossSession(dayFocus, phase, isDeload, athleteLevel, weekNumber) {
   const exercises = [];
   const { multiplier, level } = athleteLevel;
 
-  // HIIT scaled for athlete level
   exercises.push({
     name: level === 'elite' ? 'EMOM Circuit' : 'HIIT Circuit',
     sets: isDeload ? 2 : Math.round(4 * multiplier),
@@ -808,14 +893,12 @@ function generateFatLossSession(dayFocus, phase, isDeload, athleteLevel) {
     notes: level === 'elite'
       ? 'Burpees, box jumps, KB swings, battle ropes'
       : 'Max effort during work intervals',
-    progression: 'Add 1 round or reduce rest',
+    progression: `Week ${weekNumber}: Add 1 round every 2 weeks`,
   });
 
-  // Strength training for muscle preservation
-  const strengthExercises = generateAestheticExercises(dayFocus, phase, isDeload, athleteLevel);
+  const strengthExercises = generateAestheticExercises(dayFocus, phase, isDeload, athleteLevel, weekNumber);
   exercises.push(...strengthExercises.slice(0, 4));
 
-  // Finisher
   if (!isDeload) {
     exercises.push({
       name: level === 'elite' ? 'Assault Bike' : 'Incline Walk',
@@ -826,7 +909,7 @@ function generateFatLossSession(dayFocus, phase, isDeload, athleteLevel) {
       notes: level === 'elite'
         ? '30s sprint / 30s recovery'
         : '10-12% incline, 3.0-3.5 mph',
-      progression: 'Add 5 min or increase intensity',
+      progression: `Add 5 min per week or increase intensity`,
     });
   }
 
@@ -845,29 +928,31 @@ export function generateProgram(formData) {
     allowDoubleDays,
     currentWeeklyMileage,
     vacations = [],
+    targetFinishHours,
+    targetFinishMinutes,
+    targetFinishSeconds,
+    raceDistance,
   } = formData;
 
-  // Calculate athlete level
   const athleteLevel = calculateAthleteLevel(formData);
-
-  // Calculate program length based on goal date
   const { totalWeeks, weeksUntilGoal } = calculateProgramLength(formData);
-
-  // Generate periodization phases
   const phases = generatePeriodizationPhases(totalWeeks, programType, programSubtype);
-
   const workoutDays = distributeWorkoutDays(desiredTrainingDays);
 
-  // Get appropriate split template
+  // Calculate paces for endurance programs
+  const targetTime = [targetFinishHours, targetFinishMinutes, targetFinishSeconds]
+    .filter(Boolean).join(':');
+  const paces = calculatePaces(targetTime, raceDistance);
+
   let splitType = 'aesthetic';
   if (programType === 'strength') splitType = 'strength';
 
   const splitTemplate = SPLIT_TEMPLATES[Math.min(desiredTrainingDays, 6)]?.[splitType]
     || SPLIT_TEMPLATES[4][splitType];
 
-  // Generate weekly schedule (for current week - Week 1)
   const weeklySchedule = [];
   const currentPhase = phases[0];
+  const currentWeek = 1;
 
   for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
     const isWorkoutDay = workoutDays.includes(dayIndex);
@@ -877,7 +962,7 @@ export function generateProgram(formData) {
       weeklySchedule.push({
         day: dayIndex + 1,
         dayName,
-        name: 'Rest Day',
+        name: 'Active Recovery',
         isRestDay: true,
         isDeload: false,
         sessions: [],
@@ -890,13 +975,15 @@ export function generateProgram(formData) {
     const sessions = [];
     const isDeload = currentPhase === 'Deload' || currentPhase === 'Taper';
 
-    // Primary session
     if (programType === 'endurance') {
       const enduranceTemplates = programSubtype === 'triathlon'
         ? ENDURANCE_TEMPLATES.triathlon
         : ENDURANCE_TEMPLATES.running;
       const enduranceType = enduranceTemplates[desiredTrainingDays]?.[workoutIndex] || 'Easy Run';
-      const enduranceSession = generateEnduranceSession(enduranceType, currentPhase, isDeload, currentWeeklyMileage, athleteLevel);
+      const enduranceSession = generateEnduranceSession(
+        enduranceType, currentPhase, isDeload, currentWeeklyMileage,
+        athleteLevel, paces, currentWeek, totalWeeks
+      );
 
       sessions.push({
         time: 'AM',
@@ -906,7 +993,7 @@ export function generateProgram(formData) {
         exercises: enduranceSession.exercises,
       });
     } else if (programType === 'strength') {
-      const exercises = generateStrengthExercises(template.focus, currentPhase, isDeload, athleteLevel);
+      const exercises = generateStrengthExercises(template.focus, currentPhase, isDeload, athleteLevel, currentWeek);
       sessions.push({
         time: 'ANY',
         type: 'strength',
@@ -915,7 +1002,7 @@ export function generateProgram(formData) {
         exercises,
       });
     } else if (programType === 'aesthetic') {
-      const exercises = generateAestheticExercises(template.focus, currentPhase, isDeload, athleteLevel);
+      const exercises = generateAestheticExercises(template.focus, currentPhase, isDeload, athleteLevel, currentWeek);
       sessions.push({
         time: 'ANY',
         type: 'hypertrophy',
@@ -924,7 +1011,7 @@ export function generateProgram(formData) {
         exercises,
       });
     } else if (programType === 'fatloss') {
-      const exercises = generateFatLossSession(template.focus, currentPhase, isDeload, athleteLevel);
+      const exercises = generateFatLossSession(template.focus, currentPhase, isDeload, athleteLevel, currentWeek);
       sessions.push({
         time: 'ANY',
         type: 'metabolic',
@@ -934,7 +1021,6 @@ export function generateProgram(formData) {
       });
     }
 
-    // Secondary session for hybrid
     if (enableHybrid && secondaryProgramType && allowDoubleDays) {
       if (secondaryProgramType === 'endurance') {
         sessions.push({
@@ -946,9 +1032,11 @@ export function generateProgram(formData) {
             name: 'Easy Run',
             sets: 1,
             reps: '30 min',
-            rpe: 5,
+            pace: paces.recoveryPace,
+            heartRateZone: 'Zone 1-2',
+            rpe: 4,
             rest: 'N/A',
-            notes: 'Recovery pace',
+            notes: 'Recovery pace only',
           }],
         });
       } else {
@@ -957,7 +1045,8 @@ export function generateProgram(formData) {
           secondaryTemplate?.focus || ['arms'],
           currentPhase,
           isDeload,
-          athleteLevel
+          athleteLevel,
+          currentWeek
         ).slice(0, 3);
         sessions.push({
           time: 'PM',
@@ -979,12 +1068,11 @@ export function generateProgram(formData) {
     });
   }
 
-  // Create the program object
   const programName = getProgramName(programType, programSubtype, athleteLevel.level);
 
   return {
     name: programName,
-    description: `${athleteLevel.level.charAt(0).toUpperCase() + athleteLevel.level.slice(1)}-level ${programType} program with ${totalWeeks}-week periodization.`,
+    description: `${athleteLevel.level.charAt(0).toUpperCase() + athleteLevel.level.slice(1)}-level ${programType} program with ${totalWeeks}-week periodization. Max 5% weekly volume increase.`,
     mesocycleWeeks: totalWeeks,
     totalWeeks,
     currentWeek: 1,
@@ -1001,20 +1089,21 @@ export function generateProgram(formData) {
     daysPerWeek: desiredTrainingDays,
     vacations,
     weeksUntilGoal,
+    paces: programType === 'endurance' ? paces : null,
     generatedAt: new Date().toISOString(),
     weeklySchedule,
     progressionRules: {
       strengthIncrease: athleteLevel.level === 'elite'
-        ? 'Micro-load 1-2.5lbs when RPE allows, prioritize technical consistency'
-        : 'Add 2.5-5lbs per week when all reps completed at target RPE',
-      volumeIncrease: 'Add 1 set per exercise every 2-3 weeks during Build phase',
-      deloadProtocol: `Every ${athleteLevel.level === 'elite' ? '3rd' : '4th'} week: 50% volume, maintain intensity at RPE 6-7`,
-      enduranceProgression: 'Increase weekly volume by 10% during Build phase (max)',
+        ? 'Micro-load 1-2.5lbs when RPE allows. Prioritize technical consistency.'
+        : 'Add 2.5-5lbs per week when all reps completed at target RPE.',
+      volumeIncrease: 'Add 1 set per exercise every 2-3 weeks during Build phase.',
+      mileageIncrease: 'Max 5% weekly mileage increase. Never more.',
+      deloadProtocol: `Every ${athleteLevel.level === 'elite' ? '3rd' : '4th'} week: 50% volume, maintain intensity at RPE 6-7.`,
     },
     dynamicAdjustments: {
-      missedWorkouts: 'Program will auto-adjust if workouts are missed',
-      nutritionTracking: 'Calorie targets adjust based on progress',
-      goalTracking: 'Weekly check-ins to ensure you stay on track',
+      missedWorkouts: 'Program will auto-adjust if workouts are missed.',
+      nutritionTracking: 'Calorie targets adjust based on progress.',
+      goalTracking: 'Weekly check-ins to ensure you stay on track.',
     },
   };
 }
