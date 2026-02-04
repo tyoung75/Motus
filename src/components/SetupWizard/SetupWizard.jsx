@@ -130,6 +130,13 @@ export function SetupWizard({ onComplete }) {
     currentWeeklyMileage: '',
     currentPace: '',
 
+    // Baseline performance (reference point for training paces)
+    baselineRaceDistance: '', // 5k, 10k, half, etc.
+    baselineTimeHours: '',
+    baselineTimeMinutes: '',
+    baselineTimeSeconds: '',
+    longestRecentRun: '', // miles
+
     // Strength goals - 5 exercises
     strengthGoals: STRENGTH_EXERCISES.map(ex => ({
       id: ex.id,
@@ -1022,6 +1029,96 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal }) {
                 placeholder="e.g., 20"
                 className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
               />
+            </div>
+
+            {/* Baseline Performance Section */}
+            <div className="pt-4 border-t border-dark-600">
+              <h4 className="text-md font-semibold text-white mb-2">📊 Current Fitness Baseline</h4>
+              <p className="text-xs text-gray-400 mb-4">
+                Enter a recent race or time trial so we can calculate your training paces accurately.
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-300 mb-2">Reference Race Distance</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: '5k', label: '5K' },
+                    { id: '10k', label: '10K' },
+                    { id: 'half', label: 'Half Marathon' },
+                  ].map((dist) => (
+                    <button
+                      key={dist.id}
+                      onClick={() => updateFormData('baselineRaceDistance', dist.id)}
+                      className={`py-2 px-2 rounded-lg border text-sm ${
+                        formData.baselineRaceDistance === dist.id
+                          ? 'bg-accent-secondary border-accent-secondary text-white'
+                          : 'bg-dark-700 border-dark-500 text-gray-400'
+                      }`}
+                    >
+                      {dist.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {formData.baselineRaceDistance && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Your Best Recent {formData.baselineRaceDistance.toUpperCase()} Time
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <input
+                        type="number"
+                        value={formData.baselineTimeHours}
+                        onChange={(e) => updateFormData('baselineTimeHours', e.target.value)}
+                        placeholder="Hr"
+                        min="0"
+                        max="10"
+                        className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm placeholder-gray-500"
+                      />
+                      <span className="text-xs text-gray-500">Hours</span>
+                    </div>
+                    <div>
+                      <input
+                        type="number"
+                        value={formData.baselineTimeMinutes}
+                        onChange={(e) => updateFormData('baselineTimeMinutes', e.target.value)}
+                        placeholder="Min"
+                        min="0"
+                        max="59"
+                        className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm placeholder-gray-500"
+                      />
+                      <span className="text-xs text-gray-500">Min</span>
+                    </div>
+                    <div>
+                      <input
+                        type="number"
+                        value={formData.baselineTimeSeconds}
+                        onChange={(e) => updateFormData('baselineTimeSeconds', e.target.value)}
+                        placeholder="Sec"
+                        min="0"
+                        max="59"
+                        className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm placeholder-gray-500"
+                      />
+                      <span className="text-xs text-gray-500">Sec</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Longest Run in Past Month (miles)
+                </label>
+                <input
+                  type="number"
+                  value={formData.longestRecentRun}
+                  onChange={(e) => updateFormData('longestRecentRun', e.target.value)}
+                  placeholder="e.g., 10"
+                  className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
+                />
+              </div>
             </div>
           </div>
         );

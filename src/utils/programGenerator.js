@@ -102,19 +102,42 @@ function generatePeriodizationPhases(totalWeeks, programType, programSubtype) {
 
 // ============ RUNNING PACE CALCULATOR ============
 
-function calculatePaces(targetFinishTime, raceDistance) {
-  // Parse target time
-  let targetMinutes = 0;
-  if (targetFinishTime) {
-    const parts = targetFinishTime.split(':').map(Number);
-    if (parts.length === 3) {
-      targetMinutes = parts[0] * 60 + parts[1] + parts[2] / 60;
-    } else if (parts.length === 2) {
-      targetMinutes = parts[0] * 60 + parts[1];
-    }
-  }
+// Race equivalency factors (Riegel formula approximation)
+// Used to convert baseline race time to equivalent performance at other distances
+const RACE_EQUIVALENCY = {
+  '5k': { factor: 1.0, miles: 3.1 },
+  '10k': { factor: 2.09, miles: 6.2 },
+  'half': { factor: 4.65, miles: 13.1 },
+  'full': { factor: 9.8, miles: 26.2 },
+  'ultra': { factor: 22, miles: 50 },
+};
 
-  // Race distances in miles
+function parseTimeToMinutes(timeString) {
+  if (!timeString) return 0;
+  const parts = timeString.split(':').map(Number);
+  if (parts.length === 3) {
+    return parts[0] * 60 + parts[1] + parts[2] / 60;
+  } else if (parts.length === 2) {
+    return parts[0] + parts[1] / 60; // mm:ss format
+  }
+  return 0;
+}
+
+function calculateEquivalentPace(baselineTime, baselineDistance, targetDistance) {
+  // Use Riegel formula: T2 = T1 * (D2/D1)^1.06
+  const baseMiles = RACE_EQUIVALENCY[baselineDistance]?.miles || 6.2;
+  const targetMiles = RACE_EQUIVALENCY[targetDistance]?.miles || 26.2;
+
+  const baseMinutes = parseTimeToMinutes(baselineTime);
+  if (baseMinutes <= 0) return null;
+
+  // Calculate equivalent time at target distance
+  const equivalentMinutes = baseMinutes * Math.pow(targetMiles / baseMiles, 1.06);
+
+  return equivalentMinutes / targetMiles; // pace in min/mile
+}
+
+function calculatePaces(targetFinishTime, raceDistance, baselineTime = null, baselineDistance = null) {
   const distances = {
     '5k': 3.1,
     '10k': 6.2,
@@ -123,35 +146,52 @@ function calculatePaces(targetFinishTime, raceDistance) {
     'ultra': 50,
   };
 
-  const miles = distances[raceDistance] || 26.2;
-  const goalPace = targetMinutes > 0 ? targetMinutes / miles : null;
+  const targetMiles = distances[raceDistance] || 26.2;
+  let goalPace = null;
+  let currentFitnessPace = null;
 
-  // Calculate training paces based on goal pace
-  // For a 3:30 marathon (8:00/mile goal pace):
-  // Easy: +1:30-2:00 per mile (9:30-10:00)
-  // Tempo: -0:30-1:00 per mile (7:00-7:30)
-  // Interval: -1:00-1:30 per mile (6:30-7:00)
-  // Long: +0:30-1:00 per mile (8:30-9:00)
+  // First, calculate current fitness from baseline (if provided)
+  if (baselineTime && baselineDistance) {
+    currentFitnessPace = calculateEquivalentPace(baselineTime, baselineDistance, raceDistance);
+  }
 
-  if (goalPace) {
+  // Parse target time
+  const targetMinutes = parseTimeToMinutes(targetFinishTime);
+  if (targetMinutes > 0) {
+    goalPace = targetMinutes / targetMiles;
+  }
+
+  // Use current fitness as starting point, goal pace as target
+  // If no goal pace provided, use current fitness as both
+  const referencePace = currentFitnessPace || goalPace;
+
+  if (!referencePace) {
+    // Default paces for top 10% athletes (sub-3:30 marathon capability)
     return {
-      goalPace: formatPace(goalPace),
-      easyPace: formatPace(goalPace + 1.5) + ' - ' + formatPace(goalPace + 2),
-      tempoPace: formatPace(goalPace - 0.75) + ' - ' + formatPace(goalPace - 0.5),
-      intervalPace: formatPace(goalPace - 1.25) + ' - ' + formatPace(goalPace - 1),
-      longRunPace: formatPace(goalPace + 0.5) + ' - ' + formatPace(goalPace + 1),
-      recoveryPace: formatPace(goalPace + 2) + ' - ' + formatPace(goalPace + 2.5),
+      goalPace: '8:00/mi',
+      currentPace: null,
+      easyPace: '9:30-10:00/mi',
+      tempoPace: '7:00-7:30/mi',
+      intervalPace: '6:30-7:00/mi',
+      longRunPace: '8:30-9:00/mi',
+      recoveryPace: '10:00-10:30/mi',
     };
   }
 
-  // Default paces for top 10% athletes (sub-3:30 marathon capability)
+  // Training paces based on current fitness level
+  // Easy: +1:30-2:00 per mile from current race pace
+  // Tempo: +0:15-0.30 from current race pace (threshold)
+  // Interval: -0.30-0:45 from current race pace (VO2max)
+  // Long: +1:00-1:30 per mile from current race pace
+
   return {
-    goalPace: '8:00/mi',
-    easyPace: '9:30-10:00/mi',
-    tempoPace: '7:00-7:30/mi',
-    intervalPace: '6:30-7:00/mi',
-    longRunPace: '8:30-9:00/mi',
-    recoveryPace: '10:00-10:30/mi',
+    goalPace: goalPace ? formatPace(goalPace) : formatPace(referencePace),
+    currentPace: currentFitnessPace ? formatPace(currentFitnessPace) : null,
+    easyPace: formatPace(referencePace + 1.5) + ' - ' + formatPace(referencePace + 2),
+    tempoPace: formatPace(referencePace + 0.25) + ' - ' + formatPace(referencePace + 0.5),
+    intervalPace: formatPace(referencePace - 0.5) + ' - ' + formatPace(referencePace - 0.25),
+    longRunPace: formatPace(referencePace + 1) + ' - ' + formatPace(referencePace + 1.5),
+    recoveryPace: formatPace(referencePace + 2) + ' - ' + formatPace(referencePace + 2.5),
   };
 }
 
@@ -162,31 +202,62 @@ function formatPace(decimalMinutes) {
 }
 
 // ============ MILEAGE PROGRESSION CALCULATOR ============
-// Max 5% increase per week, working backward from peak mileage
+// Max 5% increase per week, starting from user's current mileage
 
-function calculateWeeklyMileage(totalWeeks, peakMileage, currentWeek, phase) {
-  // Peak mileage occurs 2-3 weeks before race (during Peak phase)
-  // Then taper down 20-30% per week
-  // Work backward to find starting mileage using max 5% weekly increase
+function calculateWeeklyMileage(totalWeeks, peakMileage, currentWeek, phase, startingMileage = null) {
+  const maxWeeklyIncrease = 0.05; // 5% max per week
 
-  const weeksToBuildup = Math.floor(totalWeeks * 0.85); // 85% of program is building
-  const maxWeeklyIncrease = 0.05; // 5% max
+  // Use provided starting mileage or calculate from peak
+  let baseMileage = startingMileage;
+  if (!baseMileage || baseMileage <= 0) {
+    // Fallback: work backward from peak using max 5% increases
+    const weeksToBuildup = Math.floor(totalWeeks * 0.85);
+    baseMileage = peakMileage / Math.pow(1 + maxWeeklyIncrease, weeksToBuildup);
+  }
 
-  // Calculate starting mileage that allows reaching peak with 5% increases
-  const startingMileage = peakMileage / Math.pow(1 + maxWeeklyIncrease, weeksToBuildup);
+  // Ensure starting mileage is realistic (at least 10 miles/week for runners)
+  baseMileage = Math.max(baseMileage, 10);
 
   // Apply phase-specific adjustments
   if (phase === 'Taper') {
-    return Math.round(peakMileage * 0.6); // 40% reduction for taper
+    // Taper is based on where you ARE, not where you started
+    const currentMileageBeforeTaper = Math.min(
+      baseMileage * Math.pow(1 + maxWeeklyIncrease, currentWeek - 3),
+      peakMileage
+    );
+    return Math.round(currentMileageBeforeTaper * 0.6); // 40% reduction for taper
   }
 
   if (phase === 'Deload') {
-    return Math.round(startingMileage * Math.pow(1 + maxWeeklyIncrease, currentWeek - 1) * 0.7);
+    // Deload week: reduce by 30% from current progression
+    const normalMileage = baseMileage * Math.pow(1 + maxWeeklyIncrease, currentWeek - 1);
+    return Math.round(Math.min(normalMileage, peakMileage) * 0.7);
   }
 
-  // Progressive increase (max 5% per week)
-  const weekMileage = startingMileage * Math.pow(1 + maxWeeklyIncrease, currentWeek - 1);
+  // Progressive increase (max 5% per week from actual starting point)
+  const weekMileage = baseMileage * Math.pow(1 + maxWeeklyIncrease, currentWeek - 1);
   return Math.min(Math.round(weekMileage), peakMileage);
+}
+
+function calculateLongRunCap(longestRecentRun, weekNumber, athleteLevel) {
+  // Cap long run based on what the user has actually done recently
+  // First few weeks: don't exceed longest recent run by more than 10%
+  // Then progressively increase
+
+  const recentMax = parseFloat(longestRecentRun) || 10;
+  const { level } = athleteLevel;
+
+  // Maximum long run for race type
+  const absoluteMax = level === 'elite' ? 22 : level === 'advanced' ? 20 : 18;
+
+  // Week 1-2: stay at or below recent longest
+  if (weekNumber <= 2) {
+    return Math.min(recentMax, absoluteMax);
+  }
+
+  // After that, can increase by ~1 mile every 2 weeks
+  const additionalMiles = Math.floor((weekNumber - 2) / 2);
+  return Math.min(recentMax + additionalMiles, absoluteMax);
 }
 
 // ============ WORKOUT TEMPLATES ============
@@ -301,7 +372,7 @@ function distributeWorkoutDays(daysPerWeek) {
 
 // ============ EXERCISE GENERATORS ============
 
-function generateStrengthExercises(focus, phase, isDeload, athleteLevel, weekNumber) {
+function generateStrengthExercises(focus, phase, isDeload, athleteLevel, weekNumber, strengthBaselines = []) {
   const exercises = [];
   const { multiplier, level } = athleteLevel;
 
@@ -318,15 +389,48 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel, weekNum
     return baseReps;
   };
 
+  // Helper to get baseline for a lift
+  const getBaseline = (exerciseName) => {
+    const mapping = {
+      'Back Squat': 'squat',
+      'Bench Press': 'bench',
+      'Deadlift': 'deadlift',
+      'Overhead Press': 'ohp',
+      'Barbell Row': 'row',
+    };
+    const id = mapping[exerciseName];
+    return strengthBaselines.find(b => b.id === id);
+  };
+
+  // Calculate working weight from 1RM
+  const getWorkingWeight = (oneRM, reps, rpeTarget) => {
+    if (!oneRM) return null;
+    // Epley formula inverse + RPE adjustment
+    const repMax = parseFloat(oneRM);
+    const repsInRange = parseInt(reps.split('-')[1]) || parseInt(reps);
+    const percentOf1RM = 1 / (1 + 0.0333 * repsInRange);
+    const rpeAdjust = (10 - rpeTarget) * 0.03; // ~3% per RPE below 10
+    return Math.round((repMax * percentOf1RM * (1 - rpeAdjust)) / 5) * 5; // Round to nearest 5
+  };
+
   if (focus.includes('legs') || focus.includes('Squat')) {
+    const baseline = getBaseline('Back Squat');
+    const reps = phase === 'Peak' ? getRepRange('1-3') : phase === 'Build' ? getRepRange('3-5') : getRepRange('5-8');
+    const workingWeight = getWorkingWeight(baseline?.current, reps, rpeBase);
+
     exercises.push({
       name: 'Back Squat',
       sets: Math.round(5 * volumeMultiplier),
-      reps: phase === 'Peak' ? getRepRange('1-3') : phase === 'Build' ? getRepRange('3-5') : getRepRange('5-8'),
+      reps,
       rpe: rpeBase,
       rest: level === 'elite' ? '4-5 min' : '3-4 min',
       notes: level === 'elite' ? 'Competition depth, pause at bottom' : 'Control descent, drive through heels',
-      progression: `Week ${weekNumber}: +${weekProgression * 5}lbs from starting weight. Add 5lbs when all reps hit at RPE ${rpeBase}`,
+      startingWeight: workingWeight ? `~${workingWeight}lbs` : null,
+      current1RM: baseline?.current ? `${baseline.current}lbs` : null,
+      target1RM: baseline?.target ? `${baseline.target}lbs` : null,
+      progression: baseline?.current
+        ? `Week ${weekNumber}: Start ~${workingWeight}lbs (${Math.round(workingWeight / baseline.current * 100)}% of 1RM). Target: ${baseline.target}lbs. Add 5lbs when all reps hit at RPE ${rpeBase}`
+        : `Week ${weekNumber}: +${weekProgression * 5}lbs from starting weight. Add 5lbs when all reps hit at RPE ${rpeBase}`,
     });
 
     if (level === 'advanced' || level === 'elite') {
@@ -343,14 +447,23 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel, weekNum
   }
 
   if (focus.includes('chest') || focus.includes('Bench')) {
+    const baseline = getBaseline('Bench Press');
+    const reps = phase === 'Peak' ? getRepRange('1-3') : phase === 'Build' ? getRepRange('3-5') : getRepRange('5-8');
+    const workingWeight = getWorkingWeight(baseline?.current, reps, rpeBase);
+
     exercises.push({
       name: 'Bench Press',
       sets: Math.round(5 * volumeMultiplier),
-      reps: phase === 'Peak' ? getRepRange('1-3') : phase === 'Build' ? getRepRange('3-5') : getRepRange('5-8'),
+      reps,
       rpe: rpeBase,
       rest: level === 'elite' ? '4-5 min' : '3-4 min',
       notes: level === 'elite' ? 'Competition pause, leg drive, tight arch' : 'Arch back, retract scapula',
-      progression: `Week ${weekNumber}: +${weekProgression * 2.5}lbs from starting weight. Add 2.5lbs when all reps hit at RPE ${rpeBase}`,
+      startingWeight: workingWeight ? `~${workingWeight}lbs` : null,
+      current1RM: baseline?.current ? `${baseline.current}lbs` : null,
+      target1RM: baseline?.target ? `${baseline.target}lbs` : null,
+      progression: baseline?.current
+        ? `Week ${weekNumber}: Start ~${workingWeight}lbs (${Math.round(workingWeight / baseline.current * 100)}% of 1RM). Target: ${baseline.target}lbs. Add 2.5lbs when all reps hit at RPE ${rpeBase}`
+        : `Week ${weekNumber}: +${weekProgression * 2.5}lbs from starting weight. Add 2.5lbs when all reps hit at RPE ${rpeBase}`,
     });
 
     if (level === 'advanced' || level === 'elite') {
@@ -367,14 +480,23 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel, weekNum
   }
 
   if (focus.includes('posterior') || focus.includes('Deadlift')) {
+    const baseline = getBaseline('Deadlift');
+    const reps = phase === 'Peak' ? getRepRange('1-2') : phase === 'Build' ? getRepRange('2-4') : getRepRange('4-6');
+    const workingWeight = getWorkingWeight(baseline?.current, reps, rpeBase);
+
     exercises.push({
       name: 'Deadlift',
       sets: Math.round(4 * volumeMultiplier),
-      reps: phase === 'Peak' ? getRepRange('1-2') : phase === 'Build' ? getRepRange('2-4') : getRepRange('4-6'),
+      reps,
       rpe: rpeBase,
       rest: level === 'elite' ? '5-6 min' : '4-5 min',
       notes: level === 'elite' ? 'Competition setup, maximal brace' : 'Brace core, hinge at hips',
-      progression: `Week ${weekNumber}: +${weekProgression * 10}lbs from starting weight. Add 5-10lbs when all reps hit at RPE ${rpeBase}`,
+      startingWeight: workingWeight ? `~${workingWeight}lbs` : null,
+      current1RM: baseline?.current ? `${baseline.current}lbs` : null,
+      target1RM: baseline?.target ? `${baseline.target}lbs` : null,
+      progression: baseline?.current
+        ? `Week ${weekNumber}: Start ~${workingWeight}lbs (${Math.round(workingWeight / baseline.current * 100)}% of 1RM). Target: ${baseline.target}lbs. Add 5-10lbs when all reps hit at RPE ${rpeBase}`
+        : `Week ${weekNumber}: +${weekProgression * 10}lbs from starting weight. Add 5-10lbs when all reps hit at RPE ${rpeBase}`,
     });
 
     if (level === 'advanced' || level === 'elite') {
@@ -706,12 +828,15 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel, weekNu
   return exercises;
 }
 
-function generateEnduranceSession(type, phase, isDeload, weeklyMileage, athleteLevel, paces, weekNumber, totalWeeks) {
+function generateEnduranceSession(type, phase, isDeload, startingMileage, athleteLevel, paces, weekNumber, totalWeeks, maxLongRun = null) {
   const { multiplier, level } = athleteLevel;
 
-  // Calculate this week's mileage based on progressive 5% max increase
+  // Calculate this week's mileage based on progressive 5% max increase from starting point
   const peakWeeklyMileage = level === 'elite' ? 60 : level === 'advanced' ? 50 : 40;
-  const currentWeekMileage = calculateWeeklyMileage(totalWeeks, peakWeeklyMileage, weekNumber, phase);
+  const currentWeekMileage = calculateWeeklyMileage(totalWeeks, peakWeeklyMileage, weekNumber, phase, startingMileage);
+
+  // Calculate long run cap based on what user has actually done
+  const longRunCap = calculateLongRunCap(maxLongRun, weekNumber, athleteLevel);
 
   // Phase-specific adjustments
   const phaseMultiplier = phase === 'Taper' ? 0.6 : phase === 'Peak' ? 1.1 : phase.includes('Build') ? 1.0 : 0.85;
@@ -825,8 +950,9 @@ function generateEnduranceSession(type, phase, isDeload, weeklyMileage, athleteL
 
     case 'Long Run': {
       const longRunMiles = Math.round(currentWeekMileage * 0.30 * phaseMultiplier * 10) / 10;
-      const maxLongRun = level === 'elite' ? 22 : level === 'advanced' ? 20 : 18;
-      const cappedMiles = Math.min(longRunMiles, maxLongRun);
+      const absoluteMaxLongRun = level === 'elite' ? 22 : level === 'advanced' ? 20 : 18;
+      // Use the smaller of: calculated mileage, progression-based cap, absolute max
+      const cappedMiles = Math.min(longRunMiles, longRunCap, absoluteMaxLongRun);
       return {
         name: 'Long Run',
         duration: Math.round(cappedMiles * 9.5),
@@ -841,7 +967,7 @@ function generateEnduranceSession(type, phase, isDeload, weeklyMileage, athleteL
           notes: phase === 'Peak'
             ? `Practice race nutrition. Last 3mi at ${paces.goalPace} (goal pace)`
             : 'Practice race nutrition. Keep even effort throughout.',
-          progression: `Week ${weekNumber}: ${cappedMiles} mi. Peak long run: ${maxLongRun}mi. Max 1mi increase/week.`,
+          progression: `Week ${weekNumber}: ${cappedMiles} mi. Current cap: ${longRunCap}mi (increases ~1mi/2wks). Peak: ${absoluteMaxLongRun}mi.`,
         }],
       };
     }
@@ -927,11 +1053,19 @@ export function generateProgram(formData) {
     secondaryProgramType,
     allowDoubleDays,
     currentWeeklyMileage,
+    longestRecentRun,
     vacations = [],
     targetFinishHours,
     targetFinishMinutes,
     targetFinishSeconds,
     raceDistance,
+    // Baseline performance data
+    baselineRaceDistance,
+    baselineTimeHours,
+    baselineTimeMinutes,
+    baselineTimeSeconds,
+    // Strength baselines
+    strengthGoals = [],
   } = formData;
 
   const athleteLevel = calculateAthleteLevel(formData);
@@ -939,10 +1073,17 @@ export function generateProgram(formData) {
   const phases = generatePeriodizationPhases(totalWeeks, programType, programSubtype);
   const workoutDays = distributeWorkoutDays(desiredTrainingDays);
 
-  // Calculate paces for endurance programs
+  // Calculate paces for endurance programs using baseline + target
   const targetTime = [targetFinishHours, targetFinishMinutes, targetFinishSeconds]
     .filter(Boolean).join(':');
-  const paces = calculatePaces(targetTime, raceDistance);
+  const baselineTime = [baselineTimeHours, baselineTimeMinutes, baselineTimeSeconds]
+    .filter(Boolean).join(':');
+
+  const paces = calculatePaces(targetTime, raceDistance, baselineTime, baselineRaceDistance);
+
+  // Starting mileage from user input
+  const startingMileage = parseFloat(currentWeeklyMileage) || null;
+  const maxLongRun = parseFloat(longestRecentRun) || null;
 
   let splitType = 'aesthetic';
   if (programType === 'strength') splitType = 'strength';
@@ -981,8 +1122,8 @@ export function generateProgram(formData) {
         : ENDURANCE_TEMPLATES.running;
       const enduranceType = enduranceTemplates[desiredTrainingDays]?.[workoutIndex] || 'Easy Run';
       const enduranceSession = generateEnduranceSession(
-        enduranceType, currentPhase, isDeload, currentWeeklyMileage,
-        athleteLevel, paces, currentWeek, totalWeeks
+        enduranceType, currentPhase, isDeload, startingMileage,
+        athleteLevel, paces, currentWeek, totalWeeks, maxLongRun
       );
 
       sessions.push({
@@ -993,7 +1134,7 @@ export function generateProgram(formData) {
         exercises: enduranceSession.exercises,
       });
     } else if (programType === 'strength') {
-      const exercises = generateStrengthExercises(template.focus, currentPhase, isDeload, athleteLevel, currentWeek);
+      const exercises = generateStrengthExercises(template.focus, currentPhase, isDeload, athleteLevel, currentWeek, strengthGoals);
       sessions.push({
         time: 'ANY',
         type: 'strength',
@@ -1089,6 +1230,24 @@ export function generateProgram(formData) {
     daysPerWeek: desiredTrainingDays,
     vacations,
     weeksUntilGoal,
+    // Baseline data
+    baseline: {
+      endurance: programType === 'endurance' ? {
+        currentMileage: startingMileage,
+        longestRecentRun: maxLongRun,
+        referenceRace: baselineRaceDistance ? {
+          distance: baselineRaceDistance,
+          time: baselineTime,
+        } : null,
+      } : null,
+      strength: programType === 'strength' ? {
+        lifts: strengthGoals.filter(g => g.current).map(g => ({
+          exercise: g.label,
+          current1RM: parseFloat(g.current),
+          target1RM: parseFloat(g.target),
+        })),
+      } : null,
+    },
     paces: programType === 'endurance' ? paces : null,
     generatedAt: new Date().toISOString(),
     weeklySchedule,

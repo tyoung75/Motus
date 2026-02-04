@@ -280,11 +280,18 @@ export function ProgramView({ program, completedWorkouts, onCompleteExercise, on
                             <div className="flex flex-wrap gap-3 mt-2 text-sm">
                               {exercise.sets && <span className="text-gray-400"><span className="text-white font-medium">{exercise.sets}</span> sets</span>}
                               {exercise.reps && <span className="text-gray-400"><span className="text-white font-medium">{exercise.reps}</span></span>}
+                              {exercise.startingWeight && <span className="text-gray-400">Weight <span className="text-accent-primary font-medium">{exercise.startingWeight}</span></span>}
                               {exercise.rpe && <span className="text-gray-400">RPE <span className="text-accent-warning font-medium">{exercise.rpe}</span></span>}
                               {exercise.pace && <span className="text-gray-400">Pace <span className="text-accent-primary font-medium">{exercise.pace}</span></span>}
                               {exercise.heartRateZone && <span className="text-gray-400">Zone <span className="text-red-400 font-medium">{exercise.heartRateZone}</span></span>}
                               {exercise.rest && <span className="text-gray-400">Rest <span className="text-white">{exercise.rest}</span></span>}
                             </div>
+                            {(exercise.current1RM || exercise.target1RM) && (
+                              <div className="flex gap-4 mt-2 text-xs">
+                                {exercise.current1RM && <span className="text-gray-500">Current 1RM: <span className="text-gray-300">{exercise.current1RM}</span></span>}
+                                {exercise.target1RM && <span className="text-gray-500">Target 1RM: <span className="text-accent-secondary">{exercise.target1RM}</span></span>}
+                              </div>
+                            )}
                             {exercise.notes && <p className="mt-2 text-sm text-gray-500 italic">💡 {exercise.notes}</p>}
                             {exercise.progression && (
                               <p className="mt-1 text-xs text-accent-secondary">📈 {exercise.progression}</p>
