@@ -3,6 +3,7 @@ import { ChevronRight, ChevronLeft, User, Target, Dumbbell, Scale, Sparkles, Cal
 import { Button } from '../shared';
 import { calculateBMR, calculateTDEE, calculateMacros } from '../../utils/calculations';
 import { useAuth } from '../../context/AuthContext';
+import { generateProgram } from '../../utils/programGenerator';
 
 const STEPS = [
   { id: 1, title: 'Personal Info', icon: User },
@@ -1523,35 +1524,8 @@ function StepGenerate({ formData, isGenerating, onGenerate }) {
 }
 
 function generateFallbackProgram(formData) {
-  return {
-    name: `${formData.programType} Program`,
-    description: 'Personalized training program optimized for your goals',
-    mesocycleWeeks: 5,
-    currentWeek: 1,
-    currentPhase: 'Base',
-    phases: ['Base', 'Build', 'Build', 'Peak', 'Deload'],
-    primaryGoal: formData.programType,
-    primarySubtype: formData.programSubtype,
-    secondaryGoal: formData.secondaryProgramType,
-    secondarySubtype: formData.secondarySubtype,
-    isHybrid: formData.enableHybrid,
-    allowDoubleDays: formData.allowDoubleDays,
-    daysPerWeek: formData.desiredTrainingDays,
-    currentTrainingDays: formData.currentTrainingDays,
-    vacations: formData.vacations,
-    generatedAt: new Date().toISOString(),
-    weeklySchedule: [],
-    progressionRules: {
-      strengthIncrease: 'Add 2.5lbs per week when all reps completed',
-      volumeIncrease: 'Add 1 set per exercise every 2 weeks',
-      deloadProtocol: 'Every 5th week: 50% volume, maintain intensity',
-    },
-    dynamicAdjustments: {
-      missedWorkouts: 'Program will auto-adjust if workouts are missed',
-      nutritionTracking: 'Calorie targets adjust based on progress',
-      goalTracking: 'Weekly check-ins to ensure you stay on track',
-    },
-  };
+  // Use the comprehensive program generator
+  return generateProgram(formData);
 }
 
 export default SetupWizard;
