@@ -1042,6 +1042,198 @@ function generateFatLossSession(dayFocus, phase, isDeload, athleteLevel, weekNum
   return exercises;
 }
 
+// ============ SMART HYBRID SCHEDULING ============
+// For hybrid programs, intelligently place secondary workouts to maximize recovery
+
+function isHardRunningDay(runType) {
+  // Hard running days that need recovery
+  const hardDays = ['Tempo Run', 'Intervals', 'Long Run', 'Interval Training'];
+  return hardDays.includes(runType);
+}
+
+function isEasyRunningDay(runType) {
+  // Easy days where adding strength is acceptable
+  const easyDays = ['Easy Run', 'Recovery Run'];
+  return easyDays.includes(runType);
+}
+
+function createSmartHybridSchedule(
+  desiredTrainingDays,
+  primaryType,
+  secondaryType,
+  allowDoubleDays,
+  enduranceTemplates,
+  paces,
+  athleteLevel,
+  currentPhase,
+  isDeload,
+  currentWeek,
+  totalWeeks,
+  startingMileage,
+  maxLongRun,
+  strengthGoals
+) {
+  // For endurance primary + strength secondary:
+  // - Place strength on easy run days
+  // - Never schedule heavy lifting day before long run
+  // - On hard run days (tempo, intervals), no strength
+  // - Allow dedicated strength days if days permit
+
+  const schedule = [];
+  const runSchedule = enduranceTemplates[desiredTrainingDays] || enduranceTemplates[4];
+
+  // Identify which run days are hard vs easy
+  const runDayInfo = runSchedule.map((runType, idx) => ({
+    runType,
+    isHard: isHardRunningDay(runType),
+    isLongRun: runType === 'Long Run',
+    dayIndex: idx,
+  }));
+
+  // Find the long run day (usually last workout day)
+  const longRunDayIndex = runDayInfo.findIndex(d => d.isLongRun);
+
+  // Determine which days get strength work
+  // Rule: strength on easy days, not day before long run
+  const strengthDays = [];
+  const strengthOnlyDays = []; // Days where we ONLY do strength
+
+  runDayInfo.forEach((day, idx) => {
+    const isBeforeLongRun = longRunDayIndex !== -1 && idx === longRunDayIndex - 1;
+
+    if (allowDoubleDays && day.isHard === false && !isBeforeLongRun) {
+      // Easy run day - can add strength
+      strengthDays.push(idx);
+    } else if (!day.isHard && !isBeforeLongRun) {
+      // Even without double days, mark as potential
+      strengthDays.push(idx);
+    }
+  });
+
+  // If we have 6 training days and running is 5, we have 1 strength-only day
+  // Place strength-only day NOT the day before long run
+  if (desiredTrainingDays >= 5 && runSchedule.length <= 5) {
+    // Find a day that's not right before long run for strength-only
+    for (let i = 0; i < 7; i++) {
+      const isBeforeLongRun = longRunDayIndex !== -1 &&
+        i === (longRunDayIndex > 0 ? longRunDayIndex - 1 : 6);
+      if (!runDayInfo.find(d => d.dayIndex === i) && !isBeforeLongRun) {
+        strengthOnlyDays.push(i);
+        break;
+      }
+    }
+  }
+
+  // Build the actual schedule
+  // Standard day distribution
+  const dayDistributions = {
+    2: [0, 3],     // Mon, Thu
+    3: [0, 2, 4],  // Mon, Wed, Fri
+    4: [0, 1, 3, 4], // Mon, Tue, Thu, Fri
+    5: [0, 1, 2, 4, 5], // Mon-Wed, Fri-Sat
+    6: [0, 1, 2, 3, 4, 5], // Mon-Sat
+    7: [0, 1, 2, 3, 4, 5, 6],
+  };
+
+  const workoutDays = dayDistributions[desiredTrainingDays] || dayDistributions[4];
+
+  // Create optimized schedule
+  for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+    const workoutDayIndex = workoutDays.indexOf(dayIndex);
+    const isWorkoutDay = workoutDayIndex !== -1;
+    const dayName = getDayName(dayIndex);
+
+    if (!isWorkoutDay) {
+      schedule.push({
+        day: dayIndex + 1,
+        dayName,
+        name: 'Active Recovery',
+        isRestDay: true,
+        isDeload: false,
+        sessions: [],
+      });
+      continue;
+    }
+
+    const sessions = [];
+
+    // Check if this is a run day
+    const runInfo = workoutDayIndex < runSchedule.length ? runSchedule[workoutDayIndex] : null;
+
+    if (runInfo) {
+      // This is a run day
+      const enduranceSession = generateEnduranceSession(
+        runInfo, currentPhase, isDeload, startingMileage,
+        athleteLevel, paces, currentWeek, totalWeeks, maxLongRun
+      );
+
+      sessions.push({
+        time: 'AM',
+        type: 'endurance',
+        focus: runInfo,
+        duration: enduranceSession.duration,
+        exercises: enduranceSession.exercises,
+      });
+
+      // Add strength if this is an easy day and double days allowed
+      const isHard = isHardRunningDay(runInfo);
+      const isBeforeLongRun = longRunDayIndex !== -1 && workoutDayIndex === longRunDayIndex - 1;
+
+      if (allowDoubleDays && !isHard && !isBeforeLongRun && secondaryType === 'strength') {
+        // Add PM strength session - lighter accessory work
+        const strengthFocus = workoutDayIndex % 2 === 0 ? ['chest', 'shoulders', 'triceps'] : ['back', 'biceps', 'core'];
+        const strengthExercises = generateAestheticExercises(
+          strengthFocus,
+          currentPhase,
+          true, // Always lighter on double days
+          athleteLevel,
+          currentWeek
+        ).slice(0, 4); // Keep it shorter
+
+        sessions.push({
+          time: 'PM',
+          type: 'strength',
+          focus: 'Supplemental Strength',
+          duration: 35,
+          exercises: strengthExercises,
+          notes: 'Keep intensity moderate - recovery is priority',
+        });
+      }
+    } else if (strengthOnlyDays.includes(dayIndex)) {
+      // Strength-only day
+      const strengthFocus = ['legs', 'core', 'posterior'];
+      const strengthExercises = generateStrengthExercises(
+        strengthFocus,
+        currentPhase,
+        isDeload,
+        athleteLevel,
+        currentWeek,
+        strengthGoals
+      );
+
+      sessions.push({
+        time: 'ANY',
+        type: 'strength',
+        focus: 'Full Body Strength',
+        duration: athleteLevel.level === 'elite' ? 75 : 60,
+        exercises: strengthExercises,
+        notes: 'Primary strength day - can push intensity',
+      });
+    }
+
+    schedule.push({
+      day: dayIndex + 1,
+      dayName,
+      name: sessions.map(s => s.focus).join(' / ') || 'Active Recovery',
+      isRestDay: sessions.length === 0,
+      isDeload,
+      sessions,
+    });
+  }
+
+  return schedule;
+}
+
 // ============ MAIN GENERATOR ============
 
 export function generateProgram(formData) {
@@ -1091,79 +1283,105 @@ export function generateProgram(formData) {
   const splitTemplate = SPLIT_TEMPLATES[Math.min(desiredTrainingDays, 6)]?.[splitType]
     || SPLIT_TEMPLATES[4][splitType];
 
-  const weeklySchedule = [];
   const currentPhase = phases[0];
   const currentWeek = 1;
+  const isDeload = currentPhase === 'Deload' || currentPhase === 'Taper';
 
-  for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-    const isWorkoutDay = workoutDays.includes(dayIndex);
-    const dayName = getDayName(dayIndex);
+  // Use smart hybrid scheduling for endurance+strength combos
+  let weeklySchedule = [];
 
-    if (!isWorkoutDay) {
-      weeklySchedule.push({
-        day: dayIndex + 1,
-        dayName,
-        name: 'Active Recovery',
-        isRestDay: true,
-        isDeload: false,
-        sessions: [],
-      });
-      continue;
-    }
+  if (enableHybrid && programType === 'endurance' && (secondaryProgramType === 'strength' || secondaryProgramType === 'aesthetic')) {
+    // Smart scheduling: place strength optimally around running
+    const enduranceTemplates = programSubtype === 'triathlon'
+      ? ENDURANCE_TEMPLATES.triathlon
+      : ENDURANCE_TEMPLATES.running;
 
-    const workoutIndex = workoutDays.indexOf(dayIndex);
-    const template = splitTemplate[workoutIndex % splitTemplate.length];
-    const sessions = [];
-    const isDeload = currentPhase === 'Deload' || currentPhase === 'Taper';
+    weeklySchedule = createSmartHybridSchedule(
+      desiredTrainingDays,
+      programType,
+      secondaryProgramType,
+      allowDoubleDays,
+      enduranceTemplates,
+      paces,
+      athleteLevel,
+      currentPhase,
+      isDeload,
+      currentWeek,
+      totalWeeks,
+      startingMileage,
+      maxLongRun,
+      strengthGoals
+    );
+  } else {
+    // Standard scheduling for non-hybrid or other combinations
+    for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+      const isWorkoutDay = workoutDays.includes(dayIndex);
+      const dayName = getDayName(dayIndex);
 
-    if (programType === 'endurance') {
-      const enduranceTemplates = programSubtype === 'triathlon'
-        ? ENDURANCE_TEMPLATES.triathlon
-        : ENDURANCE_TEMPLATES.running;
-      const enduranceType = enduranceTemplates[desiredTrainingDays]?.[workoutIndex] || 'Easy Run';
-      const enduranceSession = generateEnduranceSession(
-        enduranceType, currentPhase, isDeload, startingMileage,
-        athleteLevel, paces, currentWeek, totalWeeks, maxLongRun
-      );
+      if (!isWorkoutDay) {
+        weeklySchedule.push({
+          day: dayIndex + 1,
+          dayName,
+          name: 'Active Recovery',
+          isRestDay: true,
+          isDeload: false,
+          sessions: [],
+        });
+        continue;
+      }
 
-      sessions.push({
-        time: 'AM',
-        type: 'endurance',
-        focus: enduranceType,
-        duration: enduranceSession.duration,
-        exercises: enduranceSession.exercises,
-      });
-    } else if (programType === 'strength') {
-      const exercises = generateStrengthExercises(template.focus, currentPhase, isDeload, athleteLevel, currentWeek, strengthGoals);
-      sessions.push({
-        time: 'ANY',
-        type: 'strength',
-        focus: template.name,
-        duration: athleteLevel.level === 'elite' ? 90 : 75,
-        exercises,
-      });
-    } else if (programType === 'aesthetic') {
-      const exercises = generateAestheticExercises(template.focus, currentPhase, isDeload, athleteLevel, currentWeek);
-      sessions.push({
-        time: 'ANY',
-        type: 'hypertrophy',
-        focus: template.name,
-        duration: athleteLevel.level === 'elite' ? 75 : 60,
-        exercises,
-      });
-    } else if (programType === 'fatloss') {
-      const exercises = generateFatLossSession(template.focus, currentPhase, isDeload, athleteLevel, currentWeek);
-      sessions.push({
-        time: 'ANY',
-        type: 'metabolic',
-        focus: template.name,
-        duration: 50,
-        exercises,
-      });
-    }
+      const workoutIndex = workoutDays.indexOf(dayIndex);
+      const template = splitTemplate[workoutIndex % splitTemplate.length];
+      const sessions = [];
 
-    if (enableHybrid && secondaryProgramType && allowDoubleDays) {
-      if (secondaryProgramType === 'endurance') {
+      if (programType === 'endurance') {
+        const enduranceTemplates = programSubtype === 'triathlon'
+          ? ENDURANCE_TEMPLATES.triathlon
+          : ENDURANCE_TEMPLATES.running;
+        const enduranceType = enduranceTemplates[desiredTrainingDays]?.[workoutIndex] || 'Easy Run';
+        const enduranceSession = generateEnduranceSession(
+          enduranceType, currentPhase, isDeload, startingMileage,
+          athleteLevel, paces, currentWeek, totalWeeks, maxLongRun
+        );
+
+        sessions.push({
+          time: 'AM',
+          type: 'endurance',
+          focus: enduranceType,
+          duration: enduranceSession.duration,
+          exercises: enduranceSession.exercises,
+        });
+      } else if (programType === 'strength') {
+        const exercises = generateStrengthExercises(template.focus, currentPhase, isDeload, athleteLevel, currentWeek, strengthGoals);
+        sessions.push({
+          time: 'ANY',
+          type: 'strength',
+          focus: template.name,
+          duration: athleteLevel.level === 'elite' ? 90 : 75,
+          exercises,
+        });
+      } else if (programType === 'aesthetic') {
+        const exercises = generateAestheticExercises(template.focus, currentPhase, isDeload, athleteLevel, currentWeek);
+        sessions.push({
+          time: 'ANY',
+          type: 'hypertrophy',
+          focus: template.name,
+          duration: athleteLevel.level === 'elite' ? 75 : 60,
+          exercises,
+        });
+      } else if (programType === 'fatloss') {
+        const exercises = generateFatLossSession(template.focus, currentPhase, isDeload, athleteLevel, currentWeek);
+        sessions.push({
+          time: 'ANY',
+          type: 'metabolic',
+          focus: template.name,
+          duration: 50,
+          exercises,
+        });
+      }
+
+      // Handle hybrid for non-endurance primary (strength primary + endurance secondary)
+      if (enableHybrid && secondaryProgramType === 'endurance' && allowDoubleDays) {
         sessions.push({
           time: 'PM',
           type: 'endurance',
@@ -1173,40 +1391,24 @@ export function generateProgram(formData) {
             name: 'Easy Run',
             sets: 1,
             reps: '30 min',
-            pace: paces.recoveryPace,
+            pace: paces?.recoveryPace || '10:00-10:30/mi',
             heartRateZone: 'Zone 1-2',
             rpe: 4,
             rest: 'N/A',
-            notes: 'Recovery pace only',
+            notes: 'Recovery pace only - prioritize strength recovery',
           }],
         });
-      } else {
-        const secondaryTemplate = SPLIT_TEMPLATES[3]?.aesthetic?.[workoutIndex % 3];
-        const exercises = generateAestheticExercises(
-          secondaryTemplate?.focus || ['arms'],
-          currentPhase,
-          isDeload,
-          athleteLevel,
-          currentWeek
-        ).slice(0, 3);
-        sessions.push({
-          time: 'PM',
-          type: 'accessory',
-          focus: 'Supplemental Work',
-          duration: 30,
-          exercises,
-        });
       }
-    }
 
-    weeklySchedule.push({
-      day: dayIndex + 1,
-      dayName,
-      name: sessions.map(s => s.focus).join(' / '),
-      isRestDay: false,
-      isDeload,
-      sessions,
-    });
+      weeklySchedule.push({
+        day: dayIndex + 1,
+        dayName,
+        name: sessions.map(s => s.focus).join(' / '),
+        isRestDay: false,
+        isDeload,
+        sessions,
+      });
+    }
   }
 
   const programName = getProgramName(programType, programSubtype, athleteLevel.level);

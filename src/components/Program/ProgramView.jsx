@@ -1,8 +1,151 @@
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Clock, CheckCircle, Circle, Zap, Droplets, Moon, Utensils, Heart } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Clock, CheckCircle, Circle, Zap, Droplets, Moon, Utensils, Heart, Calendar, TrendingUp, AlertCircle } from 'lucide-react';
 import { Card, CardBody, Button } from '../shared';
 
 const DAY_NAMES = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// Generate a week's schedule based on week number and phase
+const generateWeekSchedule = (baseSchedule, weekNumber, totalWeeks, phases, program) => {
+  if (!baseSchedule || weekNumber === 1) return baseSchedule;
+
+  const phase = phases?.[weekNumber - 1] || 'Base';
+  const prevPhase = phases?.[weekNumber - 2] || 'Base';
+  const isDeload = phase === 'Deload' || phase === 'Taper';
+  const wasDeload = prevPhase === 'Deload' || prevPhase === 'Taper';
+
+  // Adjust schedule based on week number and phase
+  return baseSchedule.map(day => {
+    if (day.isRestDay) return { ...day };
+
+    const adjustedSessions = day.sessions?.map(session => {
+      const adjustedExercises = session.exercises?.map(exercise => {
+        let adjustedExercise = { ...exercise };
+
+        // Adjust volume/intensity based on phase
+        if (isDeload) {
+          if (exercise.sets && typeof exercise.sets === 'number') {
+            adjustedExercise.sets = Math.max(2, Math.floor(exercise.sets * 0.6));
+          }
+          if (exercise.rpe) {
+            adjustedExercise.rpe = Math.max(5, exercise.rpe - 2);
+          }
+        } else if (phase === 'Peak') {
+          if (exercise.rpe) {
+            adjustedExercise.rpe = Math.min(10, exercise.rpe + 0.5);
+          }
+        } else if (phase.includes('Build')) {
+          // Progressive increase from base
+          const buildMultiplier = phase === 'Build 2' ? 1.15 : 1.08;
+          if (exercise.sets && typeof exercise.sets === 'number') {
+            adjustedExercise.sets = Math.round(exercise.sets * buildMultiplier);
+          }
+        }
+
+        // Update progression text
+        adjustedExercise.progression = exercise.progression?.replace(
+          /Week \d+/g,
+          `Week ${weekNumber}`
+        );
+
+        return adjustedExercise;
+      });
+
+      return {
+        ...session,
+        exercises: adjustedExercises,
+      };
+    });
+
+    return {
+      ...day,
+      sessions: adjustedSessions,
+      isDeload,
+    };
+  });
+};
+
+// Calculate weekly summary and what's different
+const getWeeklySummary = (weekNumber, totalWeeks, phases, program) => {
+  const phase = phases?.[weekNumber - 1] || 'Base';
+  const prevPhase = weekNumber > 1 ? phases?.[weekNumber - 2] : null;
+  const isPhaseChange = prevPhase && prevPhase !== phase;
+  const isDeload = phase === 'Deload' || phase === 'Taper';
+
+  const changes = [];
+
+  if (isPhaseChange) {
+    changes.push({
+      type: 'phase',
+      icon: '🔄',
+      text: `New phase: ${prevPhase} → ${phase}`,
+    });
+  }
+
+  if (isDeload) {
+    changes.push({
+      type: 'deload',
+      icon: '📉',
+      text: 'Reduced volume (60%) - focus on recovery',
+    });
+  } else if (phase === 'Peak') {
+    changes.push({
+      type: 'peak',
+      icon: '⚡',
+      text: 'Peak intensity - race simulation workouts',
+    });
+  } else if (phase.includes('Build') && weekNumber > 1) {
+    changes.push({
+      type: 'progression',
+      icon: '📈',
+      text: 'Volume increases ~5% from last week',
+    });
+  }
+
+  if (program?.primaryGoal === 'endurance') {
+    // Calculate mileage for this week
+    const startMileage = program?.baseline?.endurance?.currentMileage || 20;
+    const peakMileage = program?.athleteLevel === 'elite' ? 60 : 50;
+    let weekMileage;
+
+    if (isDeload) {
+      weekMileage = Math.round(startMileage * Math.pow(1.05, weekNumber - 2) * 0.7);
+    } else if (phase === 'Taper') {
+      weekMileage = Math.round(peakMileage * 0.6);
+    } else {
+      weekMileage = Math.min(Math.round(startMileage * Math.pow(1.05, weekNumber - 1)), peakMileage);
+    }
+
+    changes.push({
+      type: 'mileage',
+      icon: '🏃',
+      text: `Target mileage: ~${weekMileage} miles`,
+    });
+  }
+
+  // Add week-specific goals
+  const weekGoals = {
+    1: 'Establish baseline, focus on form',
+    2: 'Build consistency, dial in paces',
+    3: 'First small volume increase',
+    4: 'Recovery week - let adaptations settle',
+  };
+
+  if (weekNumber <= 4 && weekGoals[weekNumber]) {
+    changes.push({
+      type: 'goal',
+      icon: '🎯',
+      text: weekGoals[weekNumber],
+    });
+  }
+
+  return {
+    weekNumber,
+    totalWeeks,
+    phase,
+    changes,
+    isDeload,
+  };
+};
 
 // Active recovery recommendations based on program type
 const getRecoveryRecommendations = (program) => {
@@ -136,11 +279,42 @@ export function ProgramView({ program, completedWorkouts, onCompleteExercise, on
   // Default to Monday (day 1) when viewing program, not today
   const [selectedDay, setSelectedDay] = useState(1);
   const [expandedSession, setExpandedSession] = useState(0);
-  const daySchedule = program?.weeklySchedule?.find((d) => d.day === selectedDay);
+  const [viewingWeek, setViewingWeek] = useState(program?.currentWeek || 1);
+
+  const totalWeeks = program?.totalWeeks || program?.mesocycleWeeks || 12;
+  const phases = program?.phases || [];
+
+  // Generate schedule for the currently viewed week
+  const weeklySchedule = useMemo(() => {
+    if (viewingWeek === 1 || viewingWeek === program?.currentWeek) {
+      return program?.weeklySchedule;
+    }
+    return generateWeekSchedule(
+      program?.weeklySchedule,
+      viewingWeek,
+      totalWeeks,
+      phases,
+      program
+    );
+  }, [viewingWeek, program?.weeklySchedule, totalWeeks, phases]);
+
+  const daySchedule = weeklySchedule?.find((d) => d.day === selectedDay);
+
+  // Get weekly summary
+  const weeklySummary = useMemo(() => {
+    return getWeeklySummary(viewingWeek, totalWeeks, phases, program);
+  }, [viewingWeek, totalWeeks, phases, program]);
 
   const isExerciseCompleted = (sessionIndex, exerciseIndex) => {
+    // Only show completion status for current week
+    if (viewingWeek !== program?.currentWeek) return false;
     return completedWorkouts.some((w) => w.day === selectedDay && w.sessionIndex === sessionIndex && w.completedExercises?.includes(exerciseIndex));
   };
+
+  const canGoBack = viewingWeek > 1;
+  const canGoForward = viewingWeek < totalWeeks;
+  const isViewingFuture = viewingWeek > (program?.currentWeek || 1);
+  const isViewingPast = viewingWeek < (program?.currentWeek || 1);
 
   const recoveryRecommendations = getRecoveryRecommendations(program);
 
@@ -149,19 +323,120 @@ export function ProgramView({ program, completedWorkouts, onCompleteExercise, on
       <header className="px-6 py-4 bg-dark-800 border-b border-dark-700">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="p-2 rounded-lg hover:bg-dark-700"><ChevronLeft className="w-6 h-6 text-white" /></button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold text-white">{program?.name || 'Your Program'}</h1>
-            <p className="text-gray-400 text-sm">Week {program?.currentWeek} of {program?.totalWeeks || program?.mesocycleWeeks} • {program?.currentPhase} Phase</p>
+            <p className="text-gray-400 text-sm">{program?.currentPhase} Phase</p>
           </div>
         </div>
       </header>
 
+      {/* Week Navigation */}
+      <div className="px-6 py-3 bg-dark-800/50 border-b border-dark-700">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => canGoBack && setViewingWeek(v => v - 1)}
+            disabled={!canGoBack}
+            className={`p-2 rounded-lg ${canGoBack ? 'hover:bg-dark-700 text-white' : 'text-gray-600 cursor-not-allowed'}`}
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+
+          <div className="flex items-center gap-3">
+            <Calendar className="w-5 h-5 text-accent-primary" />
+            <div className="text-center">
+              <span className="text-lg font-bold text-white">Week {viewingWeek}</span>
+              <span className="text-gray-400 text-sm"> of {totalWeeks}</span>
+              {viewingWeek === program?.currentWeek && (
+                <span className="ml-2 px-2 py-0.5 text-xs bg-accent-primary rounded-full text-white">Current</span>
+              )}
+              {isViewingFuture && (
+                <span className="ml-2 px-2 py-0.5 text-xs bg-accent-secondary/50 rounded-full text-accent-secondary">Preview</span>
+              )}
+            </div>
+          </div>
+
+          <button
+            onClick={() => canGoForward && setViewingWeek(v => v + 1)}
+            disabled={!canGoForward}
+            className={`p-2 rounded-lg ${canGoForward ? 'hover:bg-dark-700 text-white' : 'text-gray-600 cursor-not-allowed'}`}
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Quick week jump */}
+        <div className="flex gap-1 mt-2 overflow-x-auto pb-1">
+          {Array.from({ length: Math.min(totalWeeks, 12) }, (_, i) => i + 1).map(week => (
+            <button
+              key={week}
+              onClick={() => setViewingWeek(week)}
+              className={`px-2 py-1 text-xs rounded-lg min-w-[32px] ${
+                week === viewingWeek
+                  ? 'bg-accent-primary text-white'
+                  : week === program?.currentWeek
+                    ? 'bg-accent-primary/30 text-accent-primary'
+                    : week < (program?.currentWeek || 1)
+                      ? 'bg-dark-600 text-gray-400'
+                      : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
+              }`}
+            >
+              {week}
+            </button>
+          ))}
+          {totalWeeks > 12 && <span className="text-gray-500 text-xs self-center px-2">...</span>}
+        </div>
+      </div>
+
+      {/* Weekly Summary */}
+      {weeklySummary.changes.length > 0 && (
+        <div className="px-6 py-3 bg-dark-800/30 border-b border-dark-700">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-4 h-4 text-accent-secondary" />
+            <span className="text-sm font-medium text-white">Week {viewingWeek} Focus</span>
+            <span className="px-2 py-0.5 text-xs bg-dark-600 rounded-full text-gray-300">
+              {weeklySummary.phase}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {weeklySummary.changes.map((change, idx) => (
+              <div
+                key={idx}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs ${
+                  change.type === 'deload'
+                    ? 'bg-green-500/20 text-green-400'
+                    : change.type === 'peak'
+                      ? 'bg-red-500/20 text-red-400'
+                      : change.type === 'phase'
+                        ? 'bg-accent-primary/20 text-accent-primary'
+                        : 'bg-dark-600 text-gray-300'
+                }`}
+              >
+                <span>{change.icon}</span>
+                <span>{change.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Future Week Warning */}
+      {isViewingFuture && (
+        <div className="mx-6 mt-3 p-3 bg-accent-secondary/10 border border-accent-secondary/30 rounded-lg flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-accent-secondary mt-0.5 flex-shrink-0" />
+          <div className="text-sm">
+            <span className="text-accent-secondary font-medium">Preview Mode:</span>
+            <span className="text-gray-400 ml-1">This is a projected schedule. Actual workouts may adjust based on your progress.</span>
+          </div>
+        </div>
+      )}
+
       <div className="px-6 py-4 overflow-x-auto">
         <div className="flex gap-2 min-w-max">
           {[1, 2, 3, 4, 5, 6, 7].map((day) => {
-            const schedule = program?.weeklySchedule?.find((d) => d.day === day);
+            const schedule = weeklySchedule?.find((d) => d.day === day);
             const isRest = schedule?.isRestDay;
             const isSelected = selectedDay === day;
+            const isDeloadDay = schedule?.isDeload;
             return (
               <button
                 key={day}
@@ -169,11 +444,15 @@ export function ProgramView({ program, completedWorkouts, onCompleteExercise, on
                 className={`flex flex-col items-center px-4 py-2 rounded-xl min-w-[60px] transition-all ${
                   isSelected
                     ? 'bg-accent-primary text-white'
-                    : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
+                    : isDeloadDay
+                      ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
+                      : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
                 } ${isRest && !isSelected ? 'opacity-50' : ''}`}
               >
                 <span className="text-xs font-medium">{DAY_NAMES[day]}</span>
-                <span className="text-lg font-bold mt-1">{isRest ? '🧘' : '💪'}</span>
+                <span className="text-lg font-bold mt-1">
+                  {isRest ? '🧘' : isDeloadDay ? '🔄' : '💪'}
+                </span>
               </button>
             );
           })}
