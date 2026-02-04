@@ -10,7 +10,7 @@ import {
   Zap,
   ChevronRight,
 } from 'lucide-react';
-import { Card, CardBody, Button, ProgressBar, CircularProgress } from '../shared';
+import { Card, CardBody, Button, ProgressBar, CircularProgress, ProgressWidget } from '../shared';
 import {
   calculateCaloriesBurned,
   estimateDailyCalories,
@@ -20,6 +20,8 @@ import {
 export function Dashboard({
   profile,
   program,
+  meals,
+  workouts,
   todaysMeals,
   todaysWorkouts,
   onLogMeal,
@@ -206,6 +208,16 @@ export function Dashboard({
             Log Workout
           </Button>
         </div>
+
+        {/* Progress Tracking Widget */}
+        <ProgressWidget
+          profile={profile}
+          program={program}
+          meals={meals}
+          workouts={workouts}
+          todaysMeals={todaysMeals}
+          todaysWorkouts={todaysWorkouts}
+        />
 
         {/* Today's Workout */}
         <Card>

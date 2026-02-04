@@ -202,6 +202,8 @@ function AppContent() {
         <Dashboard
           profile={profile}
           program={program}
+          meals={meals}
+          workouts={workouts}
           todaysMeals={todaysMeals}
           todaysWorkouts={todaysWorkouts}
           onLogMeal={() => setShowMealModal(true)}
