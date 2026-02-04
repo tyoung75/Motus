@@ -13,34 +13,41 @@ const STEPS = [
   { id: 6, title: 'Generate', icon: Sparkles },
 ];
 
-// Restructured program categories - Performance vs Aesthetic focused
+// MECE Program categories
 const PROGRAM_TYPES = [
   {
-    id: 'performance',
-    title: 'Performance',
-    description: 'Focus on athletic performance - speed, strength, endurance',
-    icon: '🏆',
-    category: 'performance',
+    id: 'endurance',
+    title: 'Endurance',
+    description: 'Cardiovascular training - running, cycling, swimming',
+    icon: '🏃',
     subtypes: [
       { id: 'running', label: 'Running' },
       { id: 'marathon', label: 'Marathon/Race Training' },
       { id: 'cycling', label: 'Cycling' },
       { id: 'swimming', label: 'Swimming' },
       { id: 'triathlon', label: 'Triathlon' },
+    ],
+  },
+  {
+    id: 'strength',
+    title: 'Strength',
+    description: 'Build maximal strength and power',
+    icon: '🏋️',
+    subtypes: [
       { id: 'powerlifting', label: 'Powerlifting' },
       { id: 'olympic', label: 'Olympic Lifting' },
+      { id: 'strongman', label: 'Strongman' },
     ],
   },
   {
     id: 'aesthetic',
     title: 'Aesthetic',
-    description: 'Focus on physique - muscle building and body composition',
+    description: 'Physique focused - muscle building and body composition',
     icon: '💪',
-    category: 'aesthetic',
     subtypes: [
       { id: 'hypertrophy', label: 'Hypertrophy/Bodybuilding' },
       { id: 'lean-muscle', label: 'Lean Muscle Building' },
-      { id: 'toning', label: 'Muscle Toning' },
+      { id: 'recomp', label: 'Body Recomposition' },
     ],
   },
   {
@@ -54,18 +61,6 @@ const PROGRAM_TYPES = [
       { id: 'slow', label: 'Slow & Steady (0.25lb/week)' },
     ],
   },
-  {
-    id: 'general',
-    title: 'General Health',
-    description: 'Overall fitness, wellness, and healthy lifestyle',
-    icon: '❤️',
-    subtypes: [
-      { id: 'wellness', label: 'General Wellness' },
-      { id: 'mobility', label: 'Mobility & Flexibility' },
-      { id: 'functional', label: 'Functional Fitness' },
-      { id: 'active', label: 'Stay Active' },
-    ],
-  },
 ];
 
 // Race distances for endurance goals
@@ -75,6 +70,23 @@ const RACE_DISTANCES = [
   { id: 'half', label: 'Half Marathon', miles: 13.1 },
   { id: 'full', label: 'Full Marathon', miles: 26.2 },
   { id: 'ultra', label: 'Ultra Marathon', miles: 50 },
+];
+
+// Triathlon distances
+const TRIATHLON_DISTANCES = [
+  { id: 'sprint', label: 'Sprint', description: '750m swim, 20km bike, 5km run' },
+  { id: 'olympic', label: 'Olympic', description: '1.5km swim, 40km bike, 10km run' },
+  { id: 'half-iron', label: 'Half Ironman (70.3)', description: '1.9km swim, 90km bike, 21.1km run' },
+  { id: 'full-iron', label: 'Ironman', description: '3.8km swim, 180km bike, 42.2km run' },
+];
+
+// Default strength exercises
+const STRENGTH_EXERCISES = [
+  { id: 'squat', label: 'Back Squat' },
+  { id: 'bench', label: 'Bench Press' },
+  { id: 'deadlift', label: 'Deadlift' },
+  { id: 'ohp', label: 'Overhead Press' },
+  { id: 'row', label: 'Barbell Row' },
 ];
 
 export function SetupWizard({ onComplete }) {
@@ -87,48 +99,53 @@ export function SetupWizard({ onComplete }) {
     age: '',
     sex: 'male',
 
-    // Body stats - updated height format
+    // Body stats
     weight: '',
     weightUnit: 'lbs',
     heightFeet: '',
     heightInches: '',
-    heightUnit: 'imperial', // imperial (ft/in) or metric (cm)
+    heightUnit: 'imperial',
     heightCm: '',
     bodyFatPercent: '',
 
-    // Training history - NEW
-    currentTrainingDays: 3, // How many days they currently train
-    desiredTrainingDays: 4, // How many days they want to train
-    trainingHistory: 'some', // none, some, consistent
+    // Training history
+    currentTrainingDays: 3,
+    trainingHistory: 'some',
     yearsTraining: 1,
 
-    // Primary Goal
+    // Primary Goal (moved desiredTrainingDays here)
     programType: '',
     programSubtype: '',
+    desiredTrainingDays: 4,
 
-    // Goal-specific details
-    // Marathon/Race
+    // Endurance goals
     raceDistance: '',
+    triathlonDistance: '',
     targetFinishTime: '',
+    targetFinishHours: '',
+    targetFinishMinutes: '',
+    targetFinishSeconds: '',
     raceDate: '',
     currentWeeklyMileage: '',
+    currentPace: '',
 
-    // Strength
-    currentBench: '',
-    targetBench: '',
-    currentSquat: '',
-    targetSquat: '',
-    currentDeadlift: '',
-    targetDeadlift: '',
-    currentOHP: '',
-    targetOHP: '',
+    // Strength goals - 5 exercises
+    strengthGoals: STRENGTH_EXERCISES.map(ex => ({
+      id: ex.id,
+      label: ex.label,
+      current: '',
+      target: '',
+    })),
+
+    // Aesthetic goals
+    currentBodyFat: '',
+    targetBodyFat: '',
+    aestheticGoalDate: '',
 
     // Fat Loss
     targetWeight: '',
     targetDate: '',
-
-    // General - multi-select
-    focusAreas: [],
+    weeklyWeightChange: 0.5,
 
     // Hybrid/Secondary Goal
     enableHybrid: false,
@@ -141,8 +158,7 @@ export function SetupWizard({ onComplete }) {
     equipment: 'full',
 
     // Nutrition Goal
-    nutritionGoal: 'maintain', // maintain, recomp, lose, gain
-    weeklyWeightChange: 0.5, // lbs per week for lose/gain
+    nutritionGoal: 'maintain',
 
     // Vacations
     vacations: [],
@@ -150,6 +166,14 @@ export function SetupWizard({ onComplete }) {
 
   const updateFormData = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Update strength goal
+  const updateStrengthGoal = (exerciseId, field, value) => {
+    const updated = formData.strengthGoals.map((ex) =>
+      ex.id === exerciseId ? { ...ex, [field]: value } : ex
+    );
+    updateFormData('strengthGoals', updated);
   };
 
   // Auto-populate name from Google account
@@ -192,7 +216,6 @@ export function SetupWizard({ onComplete }) {
     updateFormData('vacations', formData.vacations.filter((v) => v.id !== id));
   };
 
-  // Convert height to cm for calculations
   const getHeightCm = () => {
     if (formData.heightUnit === 'metric') {
       return parseFloat(formData.heightCm) || 0;
@@ -205,20 +228,14 @@ export function SetupWizard({ onComplete }) {
   const generateProgram = async () => {
     setIsGenerating(true);
 
-    // Convert weight to kg for calculations
     const weightKg = formData.weightUnit === 'lbs'
       ? parseFloat(formData.weight) * 0.453592
       : parseFloat(formData.weight);
 
     const heightCm = getHeightCm();
-
     const bmr = calculateBMR(weightKg, heightCm, parseInt(formData.age), formData.sex);
-
-    // Use desired training days for activity level
     const activityMultiplier = getActivityMultiplier(formData.desiredTrainingDays);
     const tdee = Math.round(bmr * activityMultiplier);
-
-    // Calculate macros based on nutrition goal
     const macros = calculateSmartMacros(tdee, formData, parseFloat(formData.weight));
 
     try {
@@ -278,22 +295,32 @@ export function SetupWizard({ onComplete }) {
           : (formData.heightFeet && formData.heightInches);
         return hasWeight && hasHeight;
       case 3:
-        return formData.programType && formData.programSubtype;
+        return formData.programType && formData.programSubtype && formData.desiredTrainingDays;
       case 4:
         return validateGoalDetails();
       case 5:
-        return true; // Vacations are optional
+        return true;
       default:
         return true;
     }
   };
 
   const validateGoalDetails = () => {
-    if (formData.programType === 'performance' && formData.programSubtype === 'marathon') {
-      return formData.raceDistance && formData.raceDate;
+    if (formData.programType === 'endurance') {
+      if (formData.programSubtype === 'marathon') {
+        return formData.raceDistance && formData.raceDate;
+      }
+      if (formData.programSubtype === 'triathlon') {
+        return formData.triathlonDistance && formData.raceDate;
+      }
+      return true;
     }
-    if (formData.programType === 'performance' && formData.programSubtype === 'powerlifting') {
-      return formData.currentSquat && formData.targetSquat;
+    if (formData.programType === 'strength') {
+      const hasAtLeastOneGoal = formData.strengthGoals.some(g => g.current && g.target);
+      return hasAtLeastOneGoal;
+    }
+    if (formData.programType === 'aesthetic') {
+      return formData.targetBodyFat;
     }
     if (formData.programType === 'fatloss') {
       return formData.targetWeight;
@@ -303,13 +330,11 @@ export function SetupWizard({ onComplete }) {
 
   return (
     <div className="min-h-screen bg-dark-900 flex flex-col">
-      {/* Header */}
       <header className="px-6 py-4 border-b border-dark-700">
         <h1 className="text-2xl font-bold gradient-text">MOTUS</h1>
         <p className="text-gray-400 text-sm">Setup your personalized training program</p>
       </header>
 
-      {/* Progress */}
       <div className="px-6 py-4">
         <div className="flex items-center justify-between mb-2">
           {STEPS.map((step, index) => (
@@ -345,7 +370,6 @@ export function SetupWizard({ onComplete }) {
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex-1 px-6 py-6 overflow-y-auto">
         {currentStep === 1 && (
           <StepPersonalInfo
@@ -364,7 +388,11 @@ export function SetupWizard({ onComplete }) {
           <StepPrimaryGoal formData={formData} updateFormData={updateFormData} />
         )}
         {currentStep === 4 && (
-          <StepGoalDetails formData={formData} updateFormData={updateFormData} />
+          <StepGoalDetails
+            formData={formData}
+            updateFormData={updateFormData}
+            updateStrengthGoal={updateStrengthGoal}
+          />
         )}
         {currentStep === 5 && (
           <StepVacations
@@ -383,7 +411,6 @@ export function SetupWizard({ onComplete }) {
         )}
       </div>
 
-      {/* Navigation */}
       <div className="px-6 py-4 border-t border-dark-700 flex justify-between">
         <Button
           variant="ghost"
@@ -404,7 +431,6 @@ export function SetupWizard({ onComplete }) {
   );
 }
 
-// Activity multiplier based on training days
 function getActivityMultiplier(daysPerWeek) {
   if (daysPerWeek <= 1) return 1.2;
   if (daysPerWeek <= 2) return 1.375;
@@ -413,7 +439,6 @@ function getActivityMultiplier(daysPerWeek) {
   return 1.9;
 }
 
-// Smart macro calculation based on nutrition goal
 function calculateSmartMacros(tdee, formData, weightLbs) {
   let calories, protein, carbs, fat;
 
@@ -469,7 +494,6 @@ function StepPersonalInfo({ formData, updateFormData, user, signInWithGoogle, is
         <p className="text-gray-400">Tell us about yourself to personalize your experience.</p>
       </div>
 
-      {/* Google Sign In */}
       {isConfigured && (
         <div className="p-4 bg-dark-800 rounded-xl border border-dark-600">
           {isAuthenticated ? (
@@ -562,17 +586,16 @@ function StepPersonalInfo({ formData, updateFormData, user, signInWithGoogle, is
   );
 }
 
-// Step 2: Body Stats - Updated with new fields
+// Step 2: Body Stats
 function StepBodyStats({ formData, updateFormData }) {
   return (
     <div className="max-w-md mx-auto space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Body Measurements & Training</h2>
-        <p className="text-gray-400">Help us understand where you are and where you want to be.</p>
+        <h2 className="text-2xl font-bold text-white mb-2">Body Measurements</h2>
+        <p className="text-gray-400">Help us understand your current fitness level.</p>
       </div>
 
       <div className="space-y-5">
-        {/* Weight */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">Weight</label>
           <div className="flex gap-2">
@@ -594,7 +617,6 @@ function StepBodyStats({ formData, updateFormData }) {
           </div>
         </div>
 
-        {/* Height - Feet and Inches */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">Height</label>
           <div className="flex gap-2 mb-2">
@@ -621,28 +643,24 @@ function StepBodyStats({ formData, updateFormData }) {
           </div>
           {formData.heightUnit === 'imperial' ? (
             <div className="flex gap-2">
-              <div className="flex-1">
-                <input
-                  type="number"
-                  value={formData.heightFeet}
-                  onChange={(e) => updateFormData('heightFeet', e.target.value)}
-                  placeholder="Feet"
-                  min="3"
-                  max="8"
-                  className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-primary"
-                />
-              </div>
-              <div className="flex-1">
-                <input
-                  type="number"
-                  value={formData.heightInches}
-                  onChange={(e) => updateFormData('heightInches', e.target.value)}
-                  placeholder="Inches"
-                  min="0"
-                  max="11"
-                  className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-primary"
-                />
-              </div>
+              <input
+                type="number"
+                value={formData.heightFeet}
+                onChange={(e) => updateFormData('heightFeet', e.target.value)}
+                placeholder="Feet"
+                min="3"
+                max="8"
+                className="flex-1 px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
+              />
+              <input
+                type="number"
+                value={formData.heightInches}
+                onChange={(e) => updateFormData('heightInches', e.target.value)}
+                placeholder="Inches"
+                min="0"
+                max="11"
+                className="flex-1 px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
+              />
             </div>
           ) : (
             <input
@@ -650,12 +668,11 @@ function StepBodyStats({ formData, updateFormData }) {
               value={formData.heightCm}
               onChange={(e) => updateFormData('heightCm', e.target.value)}
               placeholder="Height in cm"
-              className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-primary"
+              className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
             />
           )}
         </div>
 
-        {/* Body Fat - Optional */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
             Body Fat % <span className="text-gray-500">(Optional)</span>
@@ -667,15 +684,13 @@ function StepBodyStats({ formData, updateFormData }) {
             placeholder="e.g., 20"
             min="5"
             max="50"
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-primary"
+            className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
           />
         </div>
 
-        {/* Training History Section */}
         <div className="pt-4 border-t border-dark-600">
           <h3 className="text-lg font-semibold text-white mb-4">Training History</h3>
 
-          {/* Current Training Frequency - Slider */}
           <div className="mb-5">
             <label className="block text-sm font-medium text-gray-300 mb-2">
               How many days per week have you been training? <span className="text-accent-primary font-bold">{formData.currentTrainingDays} days</span>
@@ -691,42 +706,10 @@ function StepBodyStats({ formData, updateFormData }) {
               className="w-full h-2 bg-dark-600 rounded-lg appearance-none cursor-pointer accent-accent-primary"
             />
             <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>0</span>
-              <span>1</span>
-              <span>2</span>
-              <span>3</span>
-              <span>4</span>
-              <span>5</span>
-              <span>6</span>
-              <span>7</span>
+              {[0, 1, 2, 3, 4, 5, 6, 7].map(n => <span key={n}>{n}</span>)}
             </div>
           </div>
 
-          {/* Desired Training Frequency - Slider */}
-          <div className="mb-5">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              How many days per week do you want to workout? <span className="text-accent-primary font-bold">{formData.desiredTrainingDays} days</span>
-            </label>
-            <input
-              type="range"
-              min="2"
-              max="7"
-              step="1"
-              value={formData.desiredTrainingDays}
-              onChange={(e) => updateFormData('desiredTrainingDays', parseInt(e.target.value))}
-              className="w-full h-2 bg-dark-600 rounded-lg appearance-none cursor-pointer accent-accent-primary"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>2</span>
-              <span>3</span>
-              <span>4</span>
-              <span>5</span>
-              <span>6</span>
-              <span>7</span>
-            </div>
-          </div>
-
-          {/* Training Consistency */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-300 mb-3">
               How consistent has your training been?
@@ -753,7 +736,6 @@ function StepBodyStats({ formData, updateFormData }) {
             </div>
           </div>
 
-          {/* Years Training */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Years of training experience: <span className="text-accent-primary font-bold">{formData.yearsTraining} {formData.yearsTraining === 1 ? 'year' : 'years'}</span>
@@ -779,7 +761,7 @@ function StepBodyStats({ formData, updateFormData }) {
   );
 }
 
-// Step 3: Primary Goal - Restructured
+// Step 3: Primary Goal
 function StepPrimaryGoal({ formData, updateFormData }) {
   const selectedProgram = PROGRAM_TYPES.find((p) => p.id === formData.programType);
 
@@ -808,15 +790,6 @@ function StepPrimaryGoal({ formData, updateFormData }) {
             <span className="text-3xl mb-2 block">{program.icon}</span>
             <h3 className="text-lg font-semibold text-white">{program.title}</h3>
             <p className="text-sm text-gray-400 mt-1">{program.description}</p>
-            {program.category && (
-              <span className={`inline-block mt-2 px-2 py-1 rounded text-xs ${
-                program.category === 'performance'
-                  ? 'bg-blue-500/20 text-blue-400'
-                  : 'bg-purple-500/20 text-purple-400'
-              }`}>
-                {program.category === 'performance' ? 'Performance Focus' : 'Aesthetic Focus'}
-              </span>
-            )}
           </button>
         ))}
       </div>
@@ -841,6 +814,27 @@ function StepPrimaryGoal({ formData, updateFormData }) {
                 {subtype.label}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Training Days - Moved here */}
+      {formData.programSubtype && (
+        <div className="mt-6 p-4 bg-dark-800 rounded-xl border border-dark-600">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            How many days per week do you want to workout? <span className="text-accent-primary font-bold">{formData.desiredTrainingDays} days</span>
+          </label>
+          <input
+            type="range"
+            min="2"
+            max="7"
+            step="1"
+            value={formData.desiredTrainingDays}
+            onChange={(e) => updateFormData('desiredTrainingDays', parseInt(e.target.value))}
+            className="w-full h-2 bg-dark-600 rounded-lg appearance-none cursor-pointer accent-accent-primary"
+          />
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            {[2, 3, 4, 5, 6, 7].map(n => <span key={n}>{n}</span>)}
           </div>
         </div>
       )}
@@ -935,35 +929,188 @@ function StepPrimaryGoal({ formData, updateFormData }) {
 }
 
 // Step 4: Goal Details
-function StepGoalDetails({ formData, updateFormData }) {
+function StepGoalDetails({ formData, updateFormData, updateStrengthGoal }) {
   const renderGoalInputs = () => {
-    // Marathon/Race Training
-    if (formData.programType === 'performance' && formData.programSubtype === 'marathon') {
-      return (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-white">🏃 Race Details</h3>
+    // Endurance goals
+    if (formData.programType === 'endurance') {
+      // Marathon/Race
+      if (formData.programSubtype === 'marathon' || formData.programSubtype === 'running') {
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-white">🏃 Race Details</h3>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Race Distance</label>
-            <div className="grid grid-cols-3 gap-2">
-              {RACE_DISTANCES.map((dist) => (
-                <button
-                  key={dist.id}
-                  onClick={() => updateFormData('raceDistance', dist.id)}
-                  className={`py-3 px-2 rounded-lg border text-sm ${
-                    formData.raceDistance === dist.id
-                      ? 'bg-accent-primary border-accent-primary text-white'
-                      : 'bg-dark-700 border-dark-500 text-gray-400'
-                  }`}
-                >
-                  {dist.label}
-                </button>
-              ))}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Race Distance</label>
+              <div className="grid grid-cols-3 gap-2">
+                {RACE_DISTANCES.map((dist) => (
+                  <button
+                    key={dist.id}
+                    onClick={() => updateFormData('raceDistance', dist.id)}
+                    className={`py-3 px-2 rounded-lg border text-sm ${
+                      formData.raceDistance === dist.id
+                        ? 'bg-accent-primary border-accent-primary text-white'
+                        : 'bg-dark-700 border-dark-500 text-gray-400'
+                    }`}
+                  >
+                    {dist.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Race Date</label>
+              <input
+                type="date"
+                value={formData.raceDate}
+                onChange={(e) => updateFormData('raceDate', e.target.value)}
+                className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Target Finish Time</label>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <input
+                    type="number"
+                    value={formData.targetFinishHours}
+                    onChange={(e) => updateFormData('targetFinishHours', e.target.value)}
+                    placeholder="Hours"
+                    min="0"
+                    max="24"
+                    className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
+                  />
+                  <span className="text-xs text-gray-500">Hours</span>
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    value={formData.targetFinishMinutes}
+                    onChange={(e) => updateFormData('targetFinishMinutes', e.target.value)}
+                    placeholder="Min"
+                    min="0"
+                    max="59"
+                    className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
+                  />
+                  <span className="text-xs text-gray-500">Minutes</span>
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    value={formData.targetFinishSeconds}
+                    onChange={(e) => updateFormData('targetFinishSeconds', e.target.value)}
+                    placeholder="Sec"
+                    min="0"
+                    max="59"
+                    className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
+                  />
+                  <span className="text-xs text-gray-500">Seconds</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Current Weekly Mileage
+              </label>
+              <input
+                type="number"
+                value={formData.currentWeeklyMileage}
+                onChange={(e) => updateFormData('currentWeeklyMileage', e.target.value)}
+                placeholder="e.g., 20"
+                className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
+              />
             </div>
           </div>
+        );
+      }
+
+      // Triathlon
+      if (formData.programSubtype === 'triathlon') {
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-white">🏊 Triathlon Details</h3>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Race Distance</label>
+              <div className="space-y-2">
+                {TRIATHLON_DISTANCES.map((dist) => (
+                  <button
+                    key={dist.id}
+                    onClick={() => updateFormData('triathlonDistance', dist.id)}
+                    className={`w-full p-3 rounded-lg border text-left ${
+                      formData.triathlonDistance === dist.id
+                        ? 'bg-accent-primary/20 border-accent-primary'
+                        : 'bg-dark-700 border-dark-500'
+                    }`}
+                  >
+                    <span className="text-white font-medium">{dist.label}</span>
+                    <p className="text-xs text-gray-400 mt-1">{dist.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Race Date</label>
+              <input
+                type="date"
+                value={formData.raceDate}
+                onChange={(e) => updateFormData('raceDate', e.target.value)}
+                className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Target Finish Time</label>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <input
+                    type="number"
+                    value={formData.targetFinishHours}
+                    onChange={(e) => updateFormData('targetFinishHours', e.target.value)}
+                    placeholder="Hours"
+                    className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
+                  />
+                  <span className="text-xs text-gray-500">Hours</span>
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    value={formData.targetFinishMinutes}
+                    onChange={(e) => updateFormData('targetFinishMinutes', e.target.value)}
+                    placeholder="Min"
+                    className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
+                  />
+                  <span className="text-xs text-gray-500">Minutes</span>
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    value={formData.targetFinishSeconds}
+                    onChange={(e) => updateFormData('targetFinishSeconds', e.target.value)}
+                    placeholder="Sec"
+                    className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
+                  />
+                  <span className="text-xs text-gray-500">Seconds</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Other endurance (cycling, swimming)
+      return (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-white">🚴 Endurance Goals</h3>
+          <p className="text-sm text-gray-400">Set your performance targets</p>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Race Date</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Target Event Date (Optional)
+            </label>
             <input
               type="date"
               value={formData.raceDate}
@@ -974,26 +1121,13 @@ function StepGoalDetails({ formData, updateFormData }) {
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Target Finish Time (optional)
+              Weekly Training Volume Goal
             </label>
             <input
               type="text"
-              value={formData.targetFinishTime}
-              onChange={(e) => updateFormData('targetFinishTime', e.target.value)}
-              placeholder="e.g., 3:30:00"
-              className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Current Weekly Mileage
-            </label>
-            <input
-              type="number"
               value={formData.currentWeeklyMileage}
               onChange={(e) => updateFormData('currentWeeklyMileage', e.target.value)}
-              placeholder="e.g., 20"
+              placeholder="e.g., 100 miles, 10 hours"
               className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
             />
           </div>
@@ -1001,37 +1135,106 @@ function StepGoalDetails({ formData, updateFormData }) {
       );
     }
 
-    // Powerlifting/Strength Training
-    if (formData.programType === 'performance' && formData.programSubtype === 'powerlifting') {
+    // Strength goals - 5 exercises
+    if (formData.programType === 'strength') {
       return (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-white">💪 Strength Goals</h3>
+          <h3 className="text-lg font-semibold text-white">🏋️ Strength Goals</h3>
           <p className="text-sm text-gray-400">Enter your current and target weights for main lifts (in lbs)</p>
 
-          {[
-            { id: 'Squat', current: 'currentSquat', target: 'targetSquat' },
-            { id: 'Bench', current: 'currentBench', target: 'targetBench' },
-            { id: 'Deadlift', current: 'currentDeadlift', target: 'targetDeadlift' },
-            { id: 'OHP', current: 'currentOHP', target: 'targetOHP' },
-          ].map((lift) => (
-            <div key={lift.id} className="grid grid-cols-3 gap-3 items-center">
-              <span className="text-white font-medium">{lift.id}</span>
-              <input
-                type="number"
-                value={formData[lift.current]}
-                onChange={(e) => updateFormData(lift.current, e.target.value)}
-                placeholder="Current"
-                className="px-3 py-2 bg-dark-700 border border-dark-500 rounded-lg text-white text-sm placeholder-gray-500"
-              />
-              <input
-                type="number"
-                value={formData[lift.target]}
-                onChange={(e) => updateFormData(lift.target, e.target.value)}
-                placeholder="Target"
-                className="px-3 py-2 bg-dark-700 border border-dark-500 rounded-lg text-white text-sm placeholder-gray-500"
-              />
+          {formData.strengthGoals.map((exercise) => (
+            <div key={exercise.id} className="p-3 bg-dark-700 rounded-lg">
+              <span className="text-white font-medium block mb-2">{exercise.label}</span>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <input
+                    type="number"
+                    value={exercise.current}
+                    onChange={(e) => updateStrengthGoal(exercise.id, 'current', e.target.value)}
+                    placeholder="Current 1RM"
+                    className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm placeholder-gray-500"
+                  />
+                  <span className="text-xs text-gray-500">Current</span>
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    value={exercise.target}
+                    onChange={(e) => updateStrengthGoal(exercise.id, 'target', e.target.value)}
+                    placeholder="Target 1RM"
+                    className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm placeholder-gray-500"
+                  />
+                  <span className="text-xs text-gray-500">Target</span>
+                </div>
+              </div>
             </div>
           ))}
+        </div>
+      );
+    }
+
+    // Aesthetic goals - body fat target
+    if (formData.programType === 'aesthetic') {
+      return (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-white">💪 Physique Goals</h3>
+          <p className="text-sm text-gray-400">Set your body composition targets</p>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Current Body Fat % (Estimate)
+            </label>
+            <input
+              type="number"
+              value={formData.currentBodyFat}
+              onChange={(e) => updateFormData('currentBodyFat', e.target.value)}
+              placeholder="e.g., 20"
+              min="5"
+              max="50"
+              className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Target Body Fat %
+            </label>
+            <input
+              type="number"
+              value={formData.targetBodyFat}
+              onChange={(e) => updateFormData('targetBodyFat', e.target.value)}
+              placeholder="e.g., 12"
+              min="5"
+              max="50"
+              className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Recommended: 10-15% for men, 18-24% for women for a lean physique
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Target Date (Optional)
+            </label>
+            <input
+              type="date"
+              value={formData.aestheticGoalDate}
+              onChange={(e) => updateFormData('aestheticGoalDate', e.target.value)}
+              className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white"
+            />
+          </div>
+
+          {formData.currentBodyFat && formData.targetBodyFat && (
+            <div className="p-4 bg-dark-700 rounded-lg">
+              <p className="text-white">
+                📊 You're looking to reduce body fat by{' '}
+                <span className="text-accent-primary font-bold">
+                  {parseFloat(formData.currentBodyFat) - parseFloat(formData.targetBodyFat)}%
+                </span>
+              </p>
+            </div>
+          )}
         </div>
       );
     }
@@ -1092,100 +1295,14 @@ function StepGoalDetails({ formData, updateFormData }) {
       );
     }
 
-    // General Health - Multi-select focus areas
-    if (formData.programType === 'general') {
-      const focusOptions = [
-        'Cardiovascular Health',
-        'Flexibility',
-        'Core Strength',
-        'Balance',
-        'Stress Relief',
-        'Better Sleep',
-        'Energy Levels',
-      ];
-
-      return (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-white">❤️ Focus Areas</h3>
-          <p className="text-sm text-gray-400">Select all that apply to you:</p>
-
-          <div className="grid grid-cols-2 gap-2">
-            {focusOptions.map((area) => (
-              <button
-                key={area}
-                onClick={() => {
-                  const current = formData.focusAreas || [];
-                  const updated = current.includes(area)
-                    ? current.filter((a) => a !== area)
-                    : [...current, area];
-                  updateFormData('focusAreas', updated);
-                }}
-                className={`p-3 rounded-lg border text-sm text-left ${
-                  formData.focusAreas?.includes(area)
-                    ? 'bg-accent-primary/20 border-accent-primary text-white'
-                    : 'bg-dark-700 border-dark-500 text-gray-400'
-                }`}
-              >
-                {formData.focusAreas?.includes(area) ? '✓ ' : ''}{area}
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    // Default/Other training preferences
-    return (
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-white">Training Preferences</h3>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Session Duration: {formData.sessionDuration} minutes
-          </label>
-          <input
-            type="range"
-            min="30"
-            max="120"
-            step="15"
-            value={formData.sessionDuration}
-            onChange={(e) => updateFormData('sessionDuration', parseInt(e.target.value))}
-            className="w-full"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Equipment</label>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { id: 'full', label: 'Full Gym', icon: '🏋️' },
-              { id: 'home', label: 'Home Gym', icon: '🏠' },
-              { id: 'minimal', label: 'Minimal', icon: '💪' },
-            ].map((opt) => (
-              <button
-                key={opt.id}
-                onClick={() => updateFormData('equipment', opt.id)}
-                className={`py-3 rounded-lg border text-center ${
-                  formData.equipment === opt.id
-                    ? 'bg-accent-primary border-accent-primary text-white'
-                    : 'bg-dark-700 border-dark-500 text-gray-400'
-                }`}
-              >
-                <span className="text-xl block">{opt.icon}</span>
-                <span className="text-xs">{opt.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   };
 
   return (
     <div className="max-w-md mx-auto space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">Goal Details</h2>
-        <p className="text-gray-400">Help us tailor your program.</p>
+        <p className="text-gray-400">Help us tailor your program to your specific targets.</p>
       </div>
 
       {renderGoalInputs()}
@@ -1214,23 +1331,6 @@ function StepGoalDetails({ formData, updateFormData }) {
             </button>
           ))}
         </div>
-
-        {(formData.nutritionGoal === 'lose' || formData.nutritionGoal === 'gain') && (
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Weekly change: {formData.weeklyWeightChange} lbs/week
-            </label>
-            <input
-              type="range"
-              min="0.25"
-              max="1"
-              step="0.25"
-              value={formData.weeklyWeightChange}
-              onChange={(e) => updateFormData('weeklyWeightChange', parseFloat(e.target.value))}
-              className="w-full"
-            />
-          </div>
-        )}
       </div>
     </div>
   );
@@ -1268,7 +1368,7 @@ function StepVacations({ formData, addVacation, updateVacation, removeVacation }
                 type="text"
                 value={vacation.name}
                 onChange={(e) => updateVacation(vacation.id, 'name', e.target.value)}
-                placeholder="Trip name (e.g., Beach Vacation)"
+                placeholder="Trip name"
                 className="w-full px-3 py-2 mb-3 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm placeholder-gray-500"
               />
 
@@ -1304,36 +1404,34 @@ function StepVacations({ formData, addVacation, updateVacation, removeVacation }
         <Plus className="w-5 h-5" />
         Add Time Off
       </button>
-
-      {formData.vacations.length > 0 && (
-        <div className="p-4 bg-accent-primary/10 border border-accent-primary/30 rounded-lg">
-          <p className="text-sm text-white">
-            ✨ Your program will automatically schedule deload weeks around your time off
-            when possible.
-          </p>
-        </div>
-      )}
     </div>
   );
 }
 
-// Step 6: Generate - Updated messaging
+// Step 6: Generate
 function StepGenerate({ formData, isGenerating, onGenerate }) {
   const programType = PROGRAM_TYPES.find((p) => p.id === formData.programType);
   const subtype = programType?.subtypes.find((s) => s.id === formData.programSubtype);
 
-  // Calculate estimated goal timeline
-  const getGoalTimeline = () => {
-    if (formData.programType === 'fatloss' && formData.targetWeight) {
-      const weightToLose = parseFloat(formData.weight) - parseFloat(formData.targetWeight);
-      const weeks = Math.ceil(weightToLose / formData.weeklyWeightChange);
-      return `~${weeks} weeks to reach ${formData.targetWeight} ${formData.weightUnit}`;
-    }
-    if (formData.programType === 'performance' && formData.programSubtype === 'marathon' && formData.raceDate) {
+  const getGoalSummary = () => {
+    if (formData.programType === 'endurance' && formData.raceDate) {
       const raceDate = new Date(formData.raceDate);
       const today = new Date();
       const weeks = Math.ceil((raceDate - today) / (7 * 24 * 60 * 60 * 1000));
-      return `${weeks} weeks until race day`;
+      const time = [formData.targetFinishHours, formData.targetFinishMinutes, formData.targetFinishSeconds]
+        .filter(Boolean).join(':');
+      return `${weeks} weeks to race day${time ? ` • Target: ${time}` : ''}`;
+    }
+    if (formData.programType === 'strength') {
+      const goals = formData.strengthGoals.filter(g => g.target);
+      return `${goals.length} lift targets set`;
+    }
+    if (formData.programType === 'aesthetic' && formData.targetBodyFat) {
+      return `Target: ${formData.targetBodyFat}% body fat`;
+    }
+    if (formData.programType === 'fatloss' && formData.targetWeight) {
+      const weeks = Math.ceil((parseFloat(formData.weight) - parseFloat(formData.targetWeight)) / formData.weeklyWeightChange);
+      return `~${weeks} weeks to ${formData.targetWeight} ${formData.weightUnit}`;
     }
     return 'Ongoing optimization';
   };
@@ -1342,12 +1440,9 @@ function StepGenerate({ formData, isGenerating, onGenerate }) {
     <div className="max-w-md mx-auto space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">Ready to Generate</h2>
-        <p className="text-gray-400">
-          Your AI-powered program will be optimized for your goal timeline.
-        </p>
+        <p className="text-gray-400">Your AI-powered program will be optimized for your goals.</p>
       </div>
 
-      {/* Summary */}
       <div className="bg-dark-800 rounded-xl p-6 space-y-4">
         <h3 className="font-semibold text-white">Your Profile Summary</h3>
 
@@ -1374,15 +1469,13 @@ function StepGenerate({ formData, isGenerating, onGenerate }) {
         </div>
 
         <div>
-          <span className="text-gray-400 text-sm">Timeline</span>
-          <p className="text-accent-primary font-medium">{getGoalTimeline()}</p>
+          <span className="text-gray-400 text-sm">Goal</span>
+          <p className="text-accent-primary font-medium">{getGoalSummary()}</p>
         </div>
 
         <div>
           <span className="text-gray-400 text-sm">Training Schedule</span>
-          <p className="text-white font-medium">
-            {formData.desiredTrainingDays} days/week (currently training {formData.currentTrainingDays} days)
-          </p>
+          <p className="text-white font-medium">{formData.desiredTrainingDays} days/week</p>
         </div>
 
         {formData.enableHybrid && formData.secondaryProgramType && (
@@ -1391,16 +1484,6 @@ function StepGenerate({ formData, isGenerating, onGenerate }) {
             <p className="text-white font-medium">
               {PROGRAM_TYPES.find((p) => p.id === formData.secondaryProgramType)?.icon}{' '}
               {formData.secondarySubtype}
-              {formData.allowDoubleDays && ' (AM/PM splits)'}
-            </p>
-          </div>
-        )}
-
-        {formData.vacations.length > 0 && (
-          <div>
-            <span className="text-gray-400 text-sm">Time Off Planned</span>
-            <p className="text-white font-medium">
-              {formData.vacations.length} vacation(s) scheduled
             </p>
           </div>
         )}
@@ -1411,13 +1494,11 @@ function StepGenerate({ formData, isGenerating, onGenerate }) {
             <li>✓ Auto-periodization (Base → Build → Peak)</li>
             <li>✓ Progressive overload built-in</li>
             <li>✓ Deload weeks every 5 weeks</li>
-            <li>✓ Dynamic adjustments based on your progress</li>
-            {formData.vacations.length > 0 && <li>✓ Deloads aligned with vacations</li>}
+            <li>✓ Dynamic adjustments based on progress</li>
           </ul>
         </div>
       </div>
 
-      {/* Generate Button */}
       <Button
         fullWidth
         size="lg"
@@ -1437,25 +1518,18 @@ function StepGenerate({ formData, isGenerating, onGenerate }) {
           </>
         )}
       </Button>
-
-      {isGenerating && (
-        <p className="text-center text-sm text-gray-400">
-          Creating your periodized program optimized for your goal...
-        </p>
-      )}
     </div>
   );
 }
 
-// Fallback program generator - Updated with 5 week deload
 function generateFallbackProgram(formData) {
   return {
     name: `${formData.programType} Program`,
     description: 'Personalized training program optimized for your goals',
-    mesocycleWeeks: 5, // Updated to 5 weeks
+    mesocycleWeeks: 5,
     currentWeek: 1,
     currentPhase: 'Base',
-    phases: ['Base', 'Build', 'Build', 'Peak', 'Deload'], // 5 week cycle
+    phases: ['Base', 'Build', 'Build', 'Peak', 'Deload'],
     primaryGoal: formData.programType,
     primarySubtype: formData.programSubtype,
     secondaryGoal: formData.secondaryProgramType,
