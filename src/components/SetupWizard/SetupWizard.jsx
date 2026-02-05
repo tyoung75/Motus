@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, Component } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, Component } from 'react';
 import { ChevronRight, ChevronLeft, User, Target, Dumbbell, Scale, Sparkles, Calendar, Plane, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../shared';
 import { calculateBMR, calculateTDEE, calculateMacros } from '../../utils/calculations';
@@ -17,7 +17,9 @@ class SetupErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Setup Wizard Error:', error, errorInfo);
+    console.error('Setup Wizard Error:', error);
+    console.error('Error Info:', errorInfo);
+    console.error('Component Stack:', errorInfo?.componentStack);
   }
 
   render() {
@@ -189,7 +191,7 @@ function SetupWizard({ onComplete }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [strengthGoalError, setStrengthGoalError] = useState(null); // Error for unrealistic strength goals
   const [devTapCount, setDevTapCount] = useState(0); // For activating test mode
-  const devTapTimeoutRef = React.useRef(null); // Ref to track timeout
+  const devTapTimeoutRef = useRef(null); // Ref to track timeout
   const [formData, setFormData] = useState({
     // Personal
     name: '',
@@ -503,12 +505,12 @@ function SetupWizard({ onComplete }) {
     }
   };
 
-  const activateTestMode = () => {
+  const activateTestMode = useCallback(() => {
     if (window.confirm('Enter test mode? This will create a mock profile for testing.')) {
       const testData = generateTestData();
       onComplete(testData);
     }
-  };
+  }, [onComplete]);
 
   // Keyboard shortcut for test mode (Ctrl+Shift+T)
   useEffect(() => {
@@ -520,7 +522,7 @@ function SetupWizard({ onComplete }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onComplete]);
+  }, [activateTestMode]);
 
   return (
     <div className="min-h-screen bg-dark-900 flex flex-col">
