@@ -1,9 +1,50 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Component } from 'react';
 import { ChevronRight, ChevronLeft, User, Target, Dumbbell, Scale, Sparkles, Calendar, Plane, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../shared';
 import { calculateBMR, calculateTDEE, calculateMacros } from '../../utils/calculations';
 import { useAuth } from '../../context/AuthContext';
 import { generateProgram } from '../../utils/programGenerator';
+
+// Error Boundary to catch rendering errors
+class SetupErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Setup Wizard Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-dark-900 flex items-center justify-center p-6">
+          <div className="bg-dark-800 rounded-xl p-6 max-w-md text-center">
+            <h2 className="text-xl font-bold text-white mb-4">Something went wrong</h2>
+            <p className="text-gray-400 mb-4">
+              {this.state.error?.message || 'An unexpected error occurred'}
+            </p>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+              className="px-6 py-3 bg-accent-primary text-white rounded-lg font-medium"
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Helper to get today's date in YYYY-MM-DD format for min date validation
 const getTodayString = () => {
@@ -142,12 +183,13 @@ const generateTestData = () => {
   return { profile: testProfile, program: testProgram };
 };
 
-export function SetupWizard({ onComplete }) {
+function SetupWizard({ onComplete }) {
   const { user, signInWithGoogle, isAuthenticated, isConfigured } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [strengthGoalError, setStrengthGoalError] = useState(null); // Error for unrealistic strength goals
   const [devTapCount, setDevTapCount] = useState(0); // For activating test mode
+  const devTapTimeoutRef = React.useRef(null); // Ref to track timeout
   const [formData, setFormData] = useState({
     // Personal
     name: '',
@@ -443,8 +485,14 @@ export function SetupWizard({ onComplete }) {
 
   // Handle test mode activation (5 taps on logo)
   const handleLogoTap = () => {
+    // Clear any existing timeout
+    if (devTapTimeoutRef.current) {
+      clearTimeout(devTapTimeoutRef.current);
+    }
+
     const newCount = devTapCount + 1;
     setDevTapCount(newCount);
+
     if (newCount >= 5) {
       setDevTapCount(0);
       // Show test mode confirmation
@@ -452,9 +500,10 @@ export function SetupWizard({ onComplete }) {
         const testData = generateTestData();
         onComplete(testData);
       }
+    } else {
+      // Reset tap count after 3 seconds of no taps
+      devTapTimeoutRef.current = setTimeout(() => setDevTapCount(0), 3000);
     }
-    // Reset tap count after 2 seconds of no taps
-    setTimeout(() => setDevTapCount(0), 2000);
   };
 
   return (
@@ -1102,6 +1151,7 @@ function StepPrimaryGoal({ formData, updateFormData }) {
 /// Step 4: Goal Details
 function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengthGoalError }) {
   const renderGoalInputs = () => {
+    try {
     // Endurance goals
     if (formData.programType === 'endurance') {
       // Marathon/Race
@@ -1417,6 +1467,14 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
 
     // Strength goals - 5 exercises
     if (formData.programType === 'strength') {
+      // Defensive check for strengthGoals
+      const strengthGoals = formData.strengthGoals || STRENGTH_EXERCISES.map(ex => ({
+        id: ex.id,
+        label: ex.label,
+        current: '',
+        target: '',
+      }));
+
       return (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-white">🏋️ Strength Goals</h3>
@@ -1429,7 +1487,7 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
             </label>
             <input
               type="date"
-              value={formData.strengthGoalDate}
+              value={formData.strengthGoalDate || ''}
               min={getTodayString()}
               onChange={(e) => updateFormData('strengthGoalDate', e.target.value)}
               className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white"
@@ -1439,7 +1497,7 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
             </p>
           </div>
 
-          {formData.strengthGoals.map((exercise) => (
+          {strengthGoals.map((exercise) => (
             <div key={exercise.id} className="p-3 bg-dark-700 rounded-lg">
               <span className="text-white font-medium block mb-2">{exercise.label}</span>
               <div className="grid grid-cols-2 gap-3">
@@ -1594,6 +1652,15 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
     }
 
     return null;
+    } catch (error) {
+      console.error('Error rendering goal inputs:', error);
+      return (
+        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+          <p className="text-red-400">Error loading goal details. Please go back and try again.</p>
+          <p className="text-xs text-gray-500 mt-2">{error?.message}</p>
+        </div>
+      );
+    }
   };
 
   return (
@@ -1861,4 +1928,14 @@ function generateFallbackProgram(formData) {
   return generateProgram(formData);
 }
 
-export default SetupWizard;
+// Wrapped export with error boundary
+function SetupWizardWithErrorBoundary(props) {
+  return (
+    <SetupErrorBoundary>
+      <SetupWizard {...props} />
+    </SetupErrorBoundary>
+  );
+}
+
+export { SetupWizardWithErrorBoundary as SetupWizard };
+export default SetupWizardWithErrorBoundary;
