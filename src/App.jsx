@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LandingPage } from './components/Landing/LandingPage';
 import { SetupWizard } from './components/SetupWizard/SetupWizard';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { ProgramView } from './components/Program/ProgramView';
@@ -37,6 +38,7 @@ function AppContent() {
   const [showMealModal, setShowMealModal] = useState(false);
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
+  const [showLanding, setShowLanding] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load data from cloud or localStorage on mount/auth change
@@ -64,6 +66,13 @@ function AppContent() {
 
       if (profileResult.data && programResult.data) {
         setIsSetupComplete(true);
+        setShowLanding(false);
+      } else {
+        // Check if user has started setup before (visited the app)
+        const hasVisited = localStorage.getItem('motus_has_visited');
+        if (hasVisited) {
+          setShowLanding(false);
+        }
       }
 
       setIsLoading(false);
@@ -251,6 +260,17 @@ function AppContent() {
   const todaysWorkouts = workouts.filter(
     (w) => (w.loggedAt || w.completedAt)?.startsWith(today)
   );
+
+  // Handle starting the setup from landing page
+  const handleGetStarted = () => {
+    localStorage.setItem('motus_has_visited', 'true');
+    setShowLanding(false);
+  };
+
+  // Render landing page for new visitors
+  if (showLanding && !isSetupComplete) {
+    return <LandingPage onGetStarted={handleGetStarted} />;
+  }
 
   // Render setup wizard if not complete
   if (!isSetupComplete) {
