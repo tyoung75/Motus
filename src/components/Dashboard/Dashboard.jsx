@@ -100,7 +100,11 @@ export function Dashboard({
     (s) => !completedSessionTimes.includes(s.time)
   );
 
-  // Estimate EOD calories
+  // Check if there's actually a workout scheduled today
+  const hasScheduledWorkout = isProgramStarted && todaysSchedule && !todaysSchedule.isRestDay;
+  const isRestOrNoWorkout = !hasScheduledWorkout;
+
+  // Estimate EOD calories - only include workout burn if there's actually a workout scheduled
   const estimatedEOD = estimateEODCalories(
     bmr || 1800,
     profile.activityLevel || 'moderate',
@@ -109,15 +113,20 @@ export function Dashboard({
       duration: w.duration,
       rpe: w.overallRpe,
     })),
-    remainingWorkouts.map((s) => ({
+    hasScheduledWorkout ? remainingWorkouts.map((s) => ({
       type: s.type || program?.primarySubtype,
       duration: s.duration,
-    })),
+    })) : [], // Don't include scheduled burn if no workout today
     weightLbs
   );
 
-  // Daily burn breakdown
-  const dailyBurn = estimateDailyCalories(bmr || 1800, profile.activityLevel, caloriesBurnedFromWorkouts);
+  // Daily burn breakdown - only include workout burn if there's actually a workout
+  const dailyBurn = estimateDailyCalories(bmr || 1800, profile.activityLevel, hasScheduledWorkout ? caloriesBurnedFromWorkouts : 0);
+
+  // Calculate estimated workout burn for display
+  const scheduledWorkoutBurn = hasScheduledWorkout
+    ? remainingWorkouts.reduce((sum, s) => sum + calculateCaloriesBurned(weightLbs, s.type || program?.primarySubtype, s.duration || 60, 7), 0)
+    : 0;
 
   // Calculate remaining calories
   const netCalories = consumed.calories - estimatedEOD;
@@ -201,9 +210,10 @@ export function Dashboard({
             {/* TDEE Explanation */}
             <div className="px-5 py-3 bg-dark-700/30 border-t border-dark-600">
               <p className="text-xs text-text-muted leading-relaxed">
-                <span className="text-accent-primary font-medium">TDEE Estimate:</span> Based on your physiology (BMR: {bmr || '~1800'} kcal)
-                + activity level + today's scheduled workout burn (~{Math.round(estimatedEOD - (bmr || 1800))} kcal).
-                These macros are optimized for your <span className="text-white">{profile?.nutritionGoal || 'performance'}</span> goal.
+                <span className="text-accent-primary font-medium">TDEE Estimate:</span> Based on your physiology (BMR: {Math.round(bmr || 1800)} kcal)
+                + activity level{hasScheduledWorkout ? ` + today's workout burn (~${scheduledWorkoutBurn + caloriesBurnedFromWorkouts} kcal)` : ''}.
+                {isRestOrNoWorkout && <span className="text-gray-500"> No workout scheduled today.</span>}
+                {' '}These macros are optimized for your <span className="text-white">{profile?.nutritionGoal || 'performance'}</span> goal.
               </p>
             </div>
           </CardBody>

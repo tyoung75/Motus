@@ -6,3 +6,4 @@ export { ProgressBar, CircularProgress } from './ProgressBar';
 export { TabBar } from './TabBar';
 export { ProgressWidget } from './ProgressWidget';
 export { ProgramOverview } from './ProgramOverview';
+export { BarcodeScanner } from './BarcodeScanner';

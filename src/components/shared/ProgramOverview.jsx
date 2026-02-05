@@ -269,6 +269,18 @@ export function ProgramOverview({ profile, program }) {
                 const phaseInfo = getPhaseFocus(phase.name);
                 const isCurrentPhase = phase.name === currentPhase;
 
+                // Phase-specific colors (subtle)
+                const phaseColors = {
+                  'Base': { border: 'border-l-blue-500', bg: 'bg-blue-500/5' },
+                  'Build': { border: 'border-l-orange-500', bg: 'bg-orange-500/5' },
+                  'Build 1': { border: 'border-l-orange-500', bg: 'bg-orange-500/5' },
+                  'Build 2': { border: 'border-l-red-500', bg: 'bg-red-500/5' },
+                  'Peak': { border: 'border-l-purple-500', bg: 'bg-purple-500/5' },
+                  'Taper': { border: 'border-l-cyan-500', bg: 'bg-cyan-500/5' },
+                  'Deload': { border: 'border-l-green-500', bg: 'bg-green-500/5' },
+                };
+                const colors = phaseColors[phase.name] || phaseColors['Base'];
+
                 // Format week display - show individual weeks or range
                 const formatWeeks = () => {
                   if (phase.weeks === 1) {
@@ -289,10 +301,10 @@ export function ProgramOverview({ profile, program }) {
                 return (
                   <div
                     key={idx}
-                    className={`p-3 rounded-lg border ${
+                    className={`p-3 rounded-lg border-l-4 ${colors.border} ${
                       isCurrentPhase
-                        ? 'bg-accent-primary/20 border-accent-primary/50'
-                        : 'bg-dark-700 border-dark-600'
+                        ? 'bg-accent-primary/20 border border-l-4 border-accent-primary/50'
+                        : `${colors.bg} border border-dark-600`
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
