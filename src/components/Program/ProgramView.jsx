@@ -444,26 +444,52 @@ export function ProgramView({ program, completedWorkouts, onCompleteExercise, on
           </button>
         </div>
 
-        {/* Quick week jump */}
-        <div className="flex gap-1 mt-2 overflow-x-auto pb-1">
-          {Array.from({ length: Math.min(totalWeeks, 12) }, (_, i) => i + 1).map(week => (
-            <button
-              key={week}
-              onClick={() => setViewingWeek(week)}
-              className={`px-2 py-1 text-xs rounded-lg min-w-[32px] ${
-                week === viewingWeek
-                  ? 'bg-accent-primary text-white'
-                  : week === program?.currentWeek
-                    ? 'bg-accent-primary/30 text-accent-primary'
-                    : week < (program?.currentWeek || 1)
-                      ? 'bg-dark-600 text-gray-400'
-                      : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
-              }`}
-            >
-              {week}
-            </button>
-          ))}
-          {totalWeeks > 12 && <span className="text-gray-500 text-xs self-center px-2">...</span>}
+        {/* Quick week jump - color coded by phase */}
+        <div className="flex gap-1 mt-2 overflow-x-auto pb-1 scrollbar-thin">
+          {Array.from({ length: totalWeeks }, (_, i) => i + 1).map(week => {
+            const weekPhase = phases[week - 1] || 'Base';
+            const phaseColors = {
+              'Base': { bg: 'bg-blue-500/20', text: 'text-blue-400', selected: 'bg-blue-500' },
+              'Build': { bg: 'bg-orange-500/20', text: 'text-orange-400', selected: 'bg-orange-500' },
+              'Build 1': { bg: 'bg-orange-500/20', text: 'text-orange-400', selected: 'bg-orange-500' },
+              'Build 2': { bg: 'bg-red-500/20', text: 'text-red-400', selected: 'bg-red-500' },
+              'Peak': { bg: 'bg-purple-500/20', text: 'text-purple-400', selected: 'bg-purple-500' },
+              'Taper': { bg: 'bg-cyan-500/20', text: 'text-cyan-400', selected: 'bg-cyan-500' },
+              'Deload': { bg: 'bg-green-500/20', text: 'text-green-400', selected: 'bg-green-500' },
+            };
+            const colors = phaseColors[weekPhase] || phaseColors['Base'];
+            const isSelected = week === viewingWeek;
+            const isCurrent = week === program?.currentWeek;
+            const isPast = week < (program?.currentWeek || 1);
+
+            return (
+              <button
+                key={week}
+                onClick={() => setViewingWeek(week)}
+                className={`px-2 py-1 text-xs rounded-lg min-w-[28px] transition-all ${
+                  isSelected
+                    ? `${colors.selected} text-white font-medium`
+                    : isCurrent
+                      ? `${colors.bg} ${colors.text} ring-1 ring-current`
+                      : isPast
+                        ? 'bg-dark-600/50 text-gray-500'
+                        : `${colors.bg} ${colors.text} hover:opacity-80`
+                }`}
+                title={`Week ${week}: ${weekPhase}`}
+              >
+                {week}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Phase Legend */}
+        <div className="flex flex-wrap gap-2 mt-2 text-[10px]">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span>Base</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500"></span>Build</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span>Deload</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500"></span>Peak</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cyan-500"></span>Taper</span>
         </div>
       </div>
 

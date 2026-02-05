@@ -57,14 +57,37 @@ export function Dashboard({
 
   // Check if program has started yet
   const programStartDate = program?.startDate ? new Date(program.startDate) : null;
+  if (programStartDate) programStartDate.setHours(0, 0, 0, 0);
   const todayDate = new Date();
   todayDate.setHours(0, 0, 0, 0);
   const isProgramStarted = !programStartDate || programStartDate <= todayDate;
+  const isTodayStartDate = programStartDate && programStartDate.getTime() === todayDate.getTime();
 
   // Calculate days until program starts
   const daysUntilStart = programStartDate
     ? Math.ceil((programStartDate - todayDate) / (1000 * 60 * 60 * 24))
     : 0;
+
+  // Get goal information for celebration message
+  const getGoalMessage = () => {
+    if (!program) return null;
+    const { primaryGoal, primarySubtype, paces, baseline } = program;
+
+    if (primaryGoal === 'endurance') {
+      if (paces?.goalPace) {
+        return `Your goal: ${paces.goalPace} pace for ${primarySubtype}`;
+      }
+      return `Building your ${primarySubtype} endurance`;
+    }
+    if (primaryGoal === 'strength' && baseline?.strength?.lifts?.length > 0) {
+      const mainLift = baseline.strength.lifts[0];
+      return `Your goal: ${mainLift.exercise} from ${mainLift.current1RM}lbs → ${mainLift.target1RM}lbs`;
+    }
+    if (primaryGoal === 'aesthetic') {
+      return `Building lean muscle with ${program.daysPerWeek} training days/week`;
+    }
+    return `${program.totalWeeks} weeks of structured training ahead`;
+  };
 
   // Get today's scheduled workouts that haven't been completed
   const today = new Date().getDay() || 7;
@@ -174,6 +197,15 @@ export function Dashboard({
               <MacroBar label="Carbs" current={consumed.carbs} target={macros.carbs} color="warning" />
               <MacroBar label="Fat" current={consumed.fat} target={macros.fat} color="secondary" />
             </div>
+
+            {/* TDEE Explanation */}
+            <div className="px-5 py-3 bg-dark-700/30 border-t border-dark-600">
+              <p className="text-xs text-text-muted leading-relaxed">
+                <span className="text-accent-primary font-medium">TDEE Estimate:</span> Based on your physiology (BMR: {bmr || '~1800'} kcal)
+                + activity level + today's scheduled workout burn (~{Math.round(estimatedEOD - (bmr || 1800))} kcal).
+                These macros are optimized for your <span className="text-white">{profile?.nutritionGoal || 'performance'}</span> goal.
+              </p>
+            </div>
           </CardBody>
         </Card>
 
@@ -206,7 +238,43 @@ export function Dashboard({
             </div>
 
             <div className="p-5">
-              {!isProgramStarted && programStartDate ? (
+              {isTodayStartDate ? (
+                /* Day 1 Celebration */
+                <div className="space-y-4">
+                  <div className="text-center py-4">
+                    <div className="w-24 h-24 bg-gradient-to-br from-accent-primary/30 to-accent-secondary/30 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-accent-primary animate-pulse">
+                      <span className="text-5xl">🎉</span>
+                    </div>
+                    <h3 className="font-display text-2xl font-bold text-accent-primary mb-2">
+                      Today is the Day!
+                    </h3>
+                    <p className="text-white font-semibold mb-3">
+                      Week 1 of your {program?.totalWeeks}-week journey begins now
+                    </p>
+                    <p className="text-sm text-text-secondary max-w-xs mx-auto">
+                      {getGoalMessage()}
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-accent-success/10 to-accent-primary/10 rounded-xl p-4 border border-accent-success/30">
+                    <p className="text-center text-sm text-text-secondary">
+                      <span className="text-accent-success font-semibold">Stay the course</span> and this program will get you to your goal.
+                      Trust the process, show up every day, and the results will follow.
+                    </p>
+                  </div>
+
+                  {todaysSchedule && !todaysSchedule.isRestDay && (
+                    <Button
+                      variant="primary"
+                      className="w-full"
+                      onClick={onViewProgram}
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Start Your First Workout
+                    </Button>
+                  )}
+                </div>
+              ) : !isProgramStarted && programStartDate ? (
                 /* Pre-program countdown view */
                 <div className="space-y-4">
                   <div className="text-center py-4">

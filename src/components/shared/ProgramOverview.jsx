@@ -22,6 +22,10 @@ export function ProgramOverview({ profile, program }) {
     baseline,
     progressionRules,
     primaryGoal,
+    primarySubtype,
+    secondaryGoal,
+    isHybrid,
+    allowDoubleDays,
     weeksUntilGoal,
   } = program;
 
@@ -190,6 +194,69 @@ export function ProgramOverview({ profile, program }) {
               )}
             </div>
           </div>
+
+          {/* Hybrid/Triathlon Program Summary */}
+          {(isHybrid || primarySubtype === 'triathlon') && (
+            <div className="p-4 rounded-lg bg-dark-700 border border-dark-500">
+              <h5 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+                {primarySubtype === 'triathlon' ? '🏊' : '🔄'}
+                {primarySubtype === 'triathlon' ? 'Triathlon Training Structure' : 'Hybrid Program Structure'}
+              </h5>
+              <div className="space-y-3 text-sm">
+                {primarySubtype === 'triathlon' ? (
+                  <>
+                    <p className="text-gray-300">
+                      This program combines <span className="text-cyan-400 font-medium">swim</span>,{' '}
+                      <span className="text-orange-400 font-medium">bike</span>, and{' '}
+                      <span className="text-green-400 font-medium">run</span> training with{' '}
+                      <span className="text-accent-primary font-medium">injury prevention strength</span> work.
+                    </p>
+                    <ul className="space-y-2 text-gray-400">
+                      <li className="flex items-center gap-2">
+                        <span className="text-accent-primary">✓</span>
+                        <span>3 strength sessions/week (hip stability, core, shoulders)</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="text-accent-primary">✓</span>
+                        <span>Double day sessions (AM cardio + PM strength)</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="text-accent-primary">✓</span>
+                        <span>Brick workouts for race-day transitions</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="text-accent-primary">✓</span>
+                        <span>Periodized build to peak race fitness</span>
+                      </li>
+                    </ul>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-gray-300">
+                      This hybrid program balances <span className="text-accent-primary font-medium">{primaryGoal}</span> training
+                      with <span className="text-accent-secondary font-medium">{secondaryGoal}</span> work for well-rounded athletic development.
+                    </p>
+                    <ul className="space-y-2 text-gray-400">
+                      <li className="flex items-center gap-2">
+                        <span className="text-accent-primary">✓</span>
+                        <span>Minimum 3 {secondaryGoal} sessions strategically placed</span>
+                      </li>
+                      {allowDoubleDays && (
+                        <li className="flex items-center gap-2">
+                          <span className="text-accent-primary">✓</span>
+                          <span>Double days on recovery/easy training days</span>
+                        </li>
+                      )}
+                      <li className="flex items-center gap-2">
+                        <span className="text-accent-primary">✓</span>
+                        <span>Smart scheduling to avoid interference</span>
+                      </li>
+                    </ul>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Phase Breakdown */}
           <div>
