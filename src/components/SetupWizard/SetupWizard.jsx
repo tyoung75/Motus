@@ -912,8 +912,29 @@ function StepPrimaryGoal({ formData, updateFormData }) {
         </div>
       )}
 
-      {/* Hybrid Training Option */}
-      {formData.programSubtype && (
+      {/* Triathlon Auto-Hybrid Notice */}
+      {formData.programSubtype === 'triathlon' && (
+        <div className="mt-6 p-4 bg-accent-primary/10 rounded-xl border border-accent-primary/30">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">🏊</span>
+            <div>
+              <h3 className="text-accent-primary font-semibold mb-1">Triathlon Program Includes:</h3>
+              <ul className="text-sm text-gray-300 space-y-1">
+                <li>✓ Swim, Bike, Run periodization with brick workouts</li>
+                <li>✓ Double & triple day sessions built in</li>
+                <li>✓ Injury prevention strength work (not hypertrophy)</li>
+                <li>✓ Race-specific taper and nutrition timing</li>
+              </ul>
+              <p className="text-xs text-gray-400 mt-2">
+                Based on professional triathlon training methodology. Minimum 5 training days recommended.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hybrid Training Option (not for triathlon - it's auto-included) */}
+      {formData.programSubtype && formData.programSubtype !== 'triathlon' && (
         <div className="mt-6 p-4 bg-dark-800 rounded-xl border border-dark-600">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -968,13 +989,13 @@ function StepPrimaryGoal({ formData, updateFormData }) {
                     className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white"
                   >
                     <option value="">Select...</option>
-                    {PROGRAM_TYPES.find((p) => p.id === formData.secondaryProgramType)?.subtypes.map(
-                      (s) => (
+                    {PROGRAM_TYPES.find((p) => p.id === formData.secondaryProgramType)?.subtypes
+                      .filter((s) => s.id !== 'triathlon') // Triathlon can ONLY be primary focus
+                      .map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.label}
                         </option>
-                      )
-                    )}
+                      ))}
                   </select>
                 </div>
               )}

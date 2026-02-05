@@ -201,6 +201,24 @@ export function ProgramOverview({ profile, program }) {
               {phaseBreakdown.map((phase, idx) => {
                 const phaseInfo = getPhaseFocus(phase.name);
                 const isCurrentPhase = phase.name === currentPhase;
+
+                // Format week display - show individual weeks or range
+                const formatWeeks = () => {
+                  if (phase.weeks === 1) {
+                    return `Week ${phase.startWeek}`;
+                  } else if (phase.weeks <= 3) {
+                    // Show individual weeks for short phases
+                    const weeks = [];
+                    for (let w = phase.startWeek; w <= phase.endWeek; w++) {
+                      weeks.push(w);
+                    }
+                    return `Weeks ${weeks.join(', ')}`;
+                  } else {
+                    // Show range for longer phases
+                    return `Weeks ${phase.startWeek}–${phase.endWeek}`;
+                  }
+                };
+
                 return (
                   <div
                     key={idx}
@@ -220,9 +238,14 @@ export function ProgramOverview({ profile, program }) {
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-gray-400">
-                        Weeks {phase.startWeek}-{phase.endWeek} ({phase.weeks}w)
-                      </span>
+                      <div className="text-right">
+                        <span className="text-xs text-accent-primary font-medium">
+                          {formatWeeks()}
+                        </span>
+                        <span className="text-xs text-gray-500 ml-2">
+                          ({phase.weeks} {phase.weeks === 1 ? 'week' : 'weeks'})
+                        </span>
+                      </div>
                     </div>
                     <p className="text-xs text-gray-400">{phaseInfo.focus}</p>
                     <p className="text-xs text-gray-500 mt-1">Intensity: {phaseInfo.intensity}</p>

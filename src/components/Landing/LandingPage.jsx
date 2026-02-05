@@ -1,82 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
-  Zap, Target, Brain, Utensils, Dumbbell, TrendingUp,
-  ChevronRight, Play, Star, CheckCircle, ArrowRight,
-  Activity, Calendar, BarChart3, Users, Clock, Flame
+  Zap, Target, Brain, Utensils, TrendingUp,
+  ChevronRight, CheckCircle, ArrowRight,
+  Activity, BarChart3, Flame, Shield, Clock, Layers
 } from 'lucide-react';
-
-const TESTIMONIALS = [
-  {
-    name: "Marcus J.",
-    role: "Lost 35 lbs in 4 months",
-    quote: "MOTUS completely transformed how I approach fitness. The AI knew exactly when to push me and when to recover.",
-    avatar: "MJ"
-  },
-  {
-    name: "Sarah K.",
-    role: "Marathon PR by 18 minutes",
-    quote: "The periodization and nutrition timing were game-changers for my endurance training. Couldn't have done it without MOTUS.",
-    avatar: "SK"
-  },
-  {
-    name: "Derek T.",
-    role: "Added 85 lbs to total",
-    quote: "Finally a program that understands powerlifting. The progressive overload and deload timing is spot on.",
-    avatar: "DT"
-  }
-];
 
 const FEATURES = [
   {
     icon: Brain,
-    title: "AI-Powered Programming",
-    description: "Your program adapts in real-time based on your performance, recovery, and progress. No generic templates."
+    title: "Intelligent Programming",
+    description: "Periodized training blocks built from proven methodologies. Auto-regulated progression based on your actual performance data."
   },
   {
     icon: Target,
-    title: "Goal-Specific Plans",
-    description: "Whether you're chasing strength PRs, running a marathon, or building your ideal physique—we've got you."
+    title: "Sport-Specific Periodization",
+    description: "Whether you're peaking for a meet, racing a marathon, or training for a triathlon—your mesocycles are structured for your event."
   },
   {
     icon: Utensils,
-    title: "Precision Nutrition",
-    description: "Macros calculated for YOUR metabolism, activity level, and goals. Meal timing optimized for performance."
+    title: "Performance Nutrition",
+    description: "Macros calibrated to your training load and body composition goals. Nutrient timing aligned with your session schedule."
   },
   {
     icon: TrendingUp,
-    title: "Smart Progression",
-    description: "Research-backed periodization with built-in deloads. Progress without burnout or plateaus."
+    title: "Progressive Overload Engine",
+    description: "Systematic volume and intensity progression with strategic deloads. No guesswork, no stalled progress."
   },
   {
     icon: Activity,
-    title: "Real-Time Tracking",
-    description: "Log workouts and meals in seconds. Track every rep, every calorie, every win."
+    title: "Session Tracking",
+    description: "Log sets, reps, RPE, and actual loads. Track deviations from prescribed work to inform future programming."
   },
   {
     icon: BarChart3,
-    title: "Deep Analytics",
-    description: "Visualize your progress with detailed insights on strength gains, body composition, and performance metrics."
+    title: "Performance Analytics",
+    description: "Volume load trends, strength curve analysis, and training density metrics. Data-driven decisions, not guesswork."
   }
 ];
 
-const STATS = [
-  { value: "10K+", label: "Active Athletes" },
-  { value: "2.5M", label: "Workouts Logged" },
-  { value: "94%", label: "Goal Achievement" },
-  { value: "4.9", label: "App Rating" }
-];
-
 export function LandingPage({ onGetStarted }) {
-  const [activeTestimonial, setActiveTestimonial] = useState(0);
-  const [isVisible, setIsVisible] = useState({});
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveTestimonial((prev) => (prev + 1) % TESTIMONIALS.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
     <div className="min-h-screen bg-dark-950 text-white overflow-x-hidden">
       {/* Navigation */}
@@ -91,7 +53,7 @@ export function LandingPage({ onGetStarted }) {
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-gray-400 hover:text-white transition-colors">Features</a>
             <a href="#how-it-works" className="text-gray-400 hover:text-white transition-colors">How It Works</a>
-            <a href="#testimonials" className="text-gray-400 hover:text-white transition-colors">Results</a>
+            <a href="#programs" className="text-gray-400 hover:text-white transition-colors">Programs</a>
           </div>
           <button
             onClick={onGetStarted}
@@ -121,49 +83,49 @@ export function LandingPage({ onGetStarted }) {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-accent-primary/10 border border-accent-primary/30 rounded-full mb-8">
             <Zap className="w-4 h-4 text-accent-primary" />
-            <span className="text-sm text-accent-primary font-medium">AI-Powered Performance</span>
+            <span className="text-sm text-accent-primary font-medium">Periodized Training + Precision Nutrition</span>
           </div>
 
           {/* Main Headline */}
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-display font-bold tracking-tight mb-6">
-            <span className="block">TRAIN SMARTER.</span>
+            <span className="block">TRAIN WITH</span>
             <span className="block bg-gradient-to-r from-accent-primary via-accent-primaryHover to-accent-secondary bg-clip-text text-transparent">
-              PERFORM BETTER.
+              INTENT.
             </span>
           </h1>
 
           {/* Subheadline */}
           <p className="text-xl md:text-2xl text-gray-400 max-w-3xl mx-auto mb-10 leading-relaxed">
-            The only fitness platform that builds <span className="text-white font-medium">personalized workout programs</span> and{' '}
-            <span className="text-white font-medium">nutrition plans</span> that adapt to you in real-time.
-            Powered by AI. Backed by science.
+            Structured programming for serious athletes. <span className="text-white font-medium">Periodized workouts</span>,{' '}
+            <span className="text-white font-medium">calibrated nutrition</span>, and{' '}
+            <span className="text-white font-medium">intelligent progression</span>—all in one platform.
           </p>
 
-          {/* CTA Buttons */}
+          {/* CTA Button */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
             <button
               onClick={onGetStarted}
               className="group px-8 py-4 bg-accent-primary hover:bg-accent-primaryHover text-dark-950 font-bold text-lg rounded-xl transition-all hover:scale-105 flex items-center gap-2 shadow-lg shadow-accent-primary/25"
             >
-              Start Your Transformation
+              Build Your Program
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
-            <button className="px-8 py-4 bg-dark-800 hover:bg-dark-700 text-white font-semibold text-lg rounded-xl transition-all flex items-center gap-2 border border-dark-600">
-              <Play className="w-5 h-5" />
-              Watch Demo
             </button>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
-            {STATS.map((stat, idx) => (
-              <div key={idx} className="text-center">
-                <div className="text-3xl md:text-4xl font-display font-bold text-accent-primary mb-1">
-                  {stat.value}
-                </div>
-                <div className="text-sm text-gray-500">{stat.label}</div>
-              </div>
-            ))}
+          {/* Key Value Props */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            <div className="flex items-center justify-center gap-3 text-gray-400">
+              <Layers className="w-5 h-5 text-accent-primary" />
+              <span>Mesocycle-based periodization</span>
+            </div>
+            <div className="flex items-center justify-center gap-3 text-gray-400">
+              <Clock className="w-5 h-5 text-accent-primary" />
+              <span>Auto-regulated deloads</span>
+            </div>
+            <div className="flex items-center justify-center gap-3 text-gray-400">
+              <Shield className="w-5 h-5 text-accent-primary" />
+              <span>Research-backed protocols</span>
+            </div>
           </div>
         </div>
 
@@ -181,47 +143,47 @@ export function LandingPage({ onGetStarted }) {
           <div className="grid md:grid-cols-2 gap-16 items-center">
             <div>
               <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">
-                Generic Programs <span className="text-accent-danger">Don't Work.</span>
+                You Know What You're Doing. <span className="text-accent-danger">Your Tools Should Too.</span>
               </h2>
               <div className="space-y-4 text-gray-400">
                 <p className="flex items-start gap-3">
                   <span className="text-accent-danger mt-1">✕</span>
-                  Cookie-cutter workout plans that ignore your goals and starting point
+                  Generic apps that don't understand periodization or peaking
                 </p>
                 <p className="flex items-start gap-3">
                   <span className="text-accent-danger mt-1">✕</span>
-                  Nutrition advice that doesn't account for your metabolism or lifestyle
+                  Nutrition trackers disconnected from your training load
                 </p>
                 <p className="flex items-start gap-3">
                   <span className="text-accent-danger mt-1">✕</span>
-                  Programs that never adjust, leading to plateaus and burnout
+                  No intelligent programming—just random workouts
                 </p>
                 <p className="flex items-start gap-3">
                   <span className="text-accent-danger mt-1">✕</span>
-                  Separate apps for workouts, nutrition, and tracking
+                  Fragmented tools that don't talk to each other
                 </p>
               </div>
             </div>
             <div>
               <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">
-                MOTUS is <span className="text-accent-success">Different.</span>
+                MOTUS Gets It. <span className="text-accent-success">Built for Athletes.</span>
               </h2>
               <div className="space-y-4 text-gray-400">
                 <p className="flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-accent-success mt-0.5 flex-shrink-0" />
-                  <span>Programs built specifically for YOUR body, goals, and schedule</span>
+                  <span>Proper periodization with base, build, peak, and taper phases</span>
                 </p>
                 <p className="flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-accent-success mt-0.5 flex-shrink-0" />
-                  <span>Nutrition plans that calculate your exact needs and adapt as you progress</span>
+                  <span>Nutrition that scales with your training volume and intensity</span>
                 </p>
                 <p className="flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-accent-success mt-0.5 flex-shrink-0" />
-                  <span>AI that learns from your performance and adjusts in real-time</span>
+                  <span>Progressive overload with strategic deload weeks built in</span>
                 </p>
                 <p className="flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-accent-success mt-0.5 flex-shrink-0" />
-                  <span>One unified platform for everything—workouts, meals, and progress</span>
+                  <span>One integrated platform—workouts, nutrition, and tracking</span>
                 </p>
               </div>
             </div>
@@ -233,15 +195,11 @@ export function LandingPage({ onGetStarted }) {
       <section id="features" className="py-24 bg-dark-950">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-dark-800 rounded-full mb-4">
-              <Star className="w-4 h-4 text-accent-primary" />
-              <span className="text-sm text-gray-400">Why Athletes Choose MOTUS</span>
-            </div>
             <h2 className="text-4xl md:text-5xl font-display font-bold mb-4">
-              Everything You Need. <span className="text-accent-primary">Nothing You Don't.</span>
+              Built for <span className="text-accent-primary">Performance</span>
             </h2>
             <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-              Built by athletes, for athletes. Every feature designed to maximize your results.
+              Every feature designed around how serious athletes actually train.
             </p>
           </div>
 
@@ -267,29 +225,29 @@ export function LandingPage({ onGetStarted }) {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-display font-bold mb-4">
-              From Setup to <span className="text-accent-primary">Results</span>
+              Setup in <span className="text-accent-primary">5 Minutes</span>
             </h2>
-            <p className="text-xl text-gray-400">Get your personalized program in under 5 minutes</p>
+            <p className="text-xl text-gray-400">Input your data. Get your program. Start training.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
                 step: "01",
-                title: "Tell Us Your Goals",
-                description: "Strength, endurance, fat loss, muscle building—whatever drives you. Share your current fitness level and available equipment.",
+                title: "Define Your Goal",
+                description: "Select your primary focus—strength, endurance, hypertrophy, or triathlon. Set your target event or timeline.",
                 icon: Target
               },
               {
                 step: "02",
-                title: "Get Your Custom Program",
-                description: "Our AI builds your personalized workout schedule and nutrition plan. Periodization, macros, and meal timing—all optimized for you.",
+                title: "Input Your Baseline",
+                description: "Current lifts, recent race times, training history. We need real numbers to build a real program.",
                 icon: Brain
               },
               {
                 step: "03",
-                title: "Train, Track, Transform",
-                description: "Follow your program, log your workouts and meals, and watch the AI adapt your plan based on your progress.",
+                title: "Execute & Track",
+                description: "Follow your periodized program. Log your sessions. Let the system adjust based on your actual performance.",
                 icon: TrendingUp
               }
             ].map((item, idx) => (
@@ -316,46 +274,46 @@ export function LandingPage({ onGetStarted }) {
       </section>
 
       {/* Program Types */}
-      <section className="py-24 bg-dark-950">
+      <section id="programs" className="py-24 bg-dark-950">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-display font-bold mb-4">
-              Programs for <span className="text-accent-primary">Every Goal</span>
+              Specialized <span className="text-accent-primary">Programming</span>
             </h2>
-            <p className="text-xl text-gray-400">Specialized training systems backed by exercise science</p>
+            <p className="text-xl text-gray-400">Structured training systems for your discipline</p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
                 title: "Strength",
-                subtitle: "Build Raw Power",
-                description: "Powerlifting-focused programs with periodized progression for squat, bench, and deadlift.",
+                subtitle: "Powerlifting & Strength Sport",
+                description: "Periodized programming for squat, bench, and deadlift. Volume blocks, intensity blocks, and peaking protocols.",
                 icon: "🏋️",
                 color: "from-red-500/20 to-orange-500/20",
                 border: "border-red-500/30"
               },
               {
                 title: "Endurance",
-                subtitle: "Go The Distance",
-                description: "5K to marathon training with pace-based workouts and smart mileage progression.",
+                subtitle: "Running & Cycling",
+                description: "5K to marathon and beyond. Pace-based training zones, mileage progression, and taper protocols.",
                 icon: "🏃",
                 color: "from-blue-500/20 to-cyan-500/20",
                 border: "border-blue-500/30"
               },
               {
-                title: "Aesthetic",
-                subtitle: "Sculpt Your Physique",
-                description: "Hypertrophy-focused bodybuilding programs for maximum muscle development.",
+                title: "Hypertrophy",
+                subtitle: "Bodybuilding & Physique",
+                description: "Volume-driven programming for muscle development. Progressive overload with strategic deloads.",
                 icon: "💪",
                 color: "from-purple-500/20 to-pink-500/20",
                 border: "border-purple-500/30"
               },
               {
-                title: "Fat Loss",
-                subtitle: "Transform Your Body",
-                description: "Strategic training and nutrition to maximize fat loss while preserving muscle.",
-                icon: "🔥",
+                title: "Triathlon",
+                subtitle: "Swim • Bike • Run",
+                description: "Multi-sport periodization with brick workouts and double days. Injury-prevention strength work built in.",
+                icon: "🏊",
                 color: "from-accent-primary/20 to-yellow-500/20",
                 border: "border-accent-primary/30"
               }
@@ -374,67 +332,17 @@ export function LandingPage({ onGetStarted }) {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section id="testimonials" className="py-24 bg-dark-900">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-display font-bold mb-4">
-              Real Athletes. <span className="text-accent-primary">Real Results.</span>
-            </h2>
-          </div>
-
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-dark-800 border border-dark-700 rounded-2xl p-8 md:p-12 relative">
-              <div className="text-6xl text-accent-primary/20 absolute top-4 left-6">"</div>
-              <div className="relative">
-                <p className="text-xl md:text-2xl text-gray-300 mb-8 italic">
-                  {TESTIMONIALS[activeTestimonial].quote}
-                </p>
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-accent-primary rounded-full flex items-center justify-center font-bold text-dark-950">
-                    {TESTIMONIALS[activeTestimonial].avatar}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-white">{TESTIMONIALS[activeTestimonial].name}</div>
-                    <div className="text-accent-primary text-sm">{TESTIMONIALS[activeTestimonial].role}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Testimonial Dots */}
-            <div className="flex justify-center gap-2 mt-6">
-              {TESTIMONIALS.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActiveTestimonial(idx)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    idx === activeTestimonial ? 'bg-accent-primary w-8' : 'bg-dark-600 hover:bg-dark-500'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Final CTA */}
-      <section className="py-24 bg-dark-950 relative overflow-hidden">
+      <section className="py-24 bg-dark-900 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-accent-primary/5 via-transparent to-accent-secondary/5" />
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-px bg-gradient-to-r from-transparent via-accent-primary/50 to-transparent" />
 
         <div className="relative max-w-4xl mx-auto px-6 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-accent-success/10 border border-accent-success/30 rounded-full mb-8">
-            <Flame className="w-4 h-4 text-accent-success" />
-            <span className="text-sm text-accent-success font-medium">Free to Start • No Credit Card Required</span>
-          </div>
-
           <h2 className="text-4xl md:text-6xl font-display font-bold mb-6">
-            Ready to <span className="text-accent-primary">Transform?</span>
+            Stop Guessing. <span className="text-accent-primary">Start Training.</span>
           </h2>
           <p className="text-xl text-gray-400 mb-10 max-w-2xl mx-auto">
-            Join thousands of athletes who've unlocked their potential with MOTUS.
-            Your personalized program is waiting.
+            Your personalized program is 5 minutes away.
           </p>
 
           <button
@@ -444,15 +352,11 @@ export function LandingPage({ onGetStarted }) {
             Build My Program
             <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
           </button>
-
-          <p className="mt-6 text-sm text-gray-500">
-            Setup takes less than 5 minutes
-          </p>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-12 bg-dark-900 border-t border-dark-800">
+      <footer className="py-12 bg-dark-950 border-t border-dark-800">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2">
@@ -467,7 +371,7 @@ export function LandingPage({ onGetStarted }) {
               <a href="#" className="hover:text-white transition-colors">Contact</a>
             </div>
             <p className="text-sm text-gray-500">
-              © 2024 MOTUS. Train Smarter.
+              © 2024 MOTUS. Train With Intent.
             </p>
           </div>
         </div>
