@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LandingPage } from './components/Landing/LandingPage';
 import { SetupWizard } from './components/SetupWizard/SetupWizard';
@@ -359,6 +360,7 @@ function App() {
   return (
     <AuthProvider>
       <AppContent />
+      <Analytics />
     </AuthProvider>
   );
 }
