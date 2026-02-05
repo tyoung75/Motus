@@ -342,11 +342,13 @@ export function SetupWizard({ onComplete }) {
 
   return (
     <div className="min-h-screen bg-dark-900 flex flex-col">
-      <header className="px-6 py-4 border-b border-dark-700">
-        <h1 className="text-2xl font-bold gradient-text">MOTUS</h1>
-        <p className="text-gray-400 text-sm">Setup your personalized training program</p>
+      {/* Header - Bold brand presence */}
+      <header className="px-6 pt-8 pb-4">
+        <h1 className="font-display text-3xl font-bold tracking-tight gradient-text">MOTUS</h1>
+        <p className="text-text-secondary text-sm mt-1">Build your personalized program</p>
       </header>
 
+      {/* Step Indicator - Clean, minimal */}
       <div className="px-6 py-4">
         <div className="flex items-center justify-between mb-2">
           {STEPS.map((step, index) => (
@@ -354,25 +356,27 @@ export function SetupWizard({ onComplete }) {
               <div className="flex flex-col items-center">
                 <div
                   className={`
-                    w-10 h-10 rounded-full flex items-center justify-center
+                    w-10 h-10 rounded-xl flex items-center justify-center
                     transition-all duration-300
                     ${currentStep >= step.id
-                      ? 'bg-accent-primary text-white'
-                      : 'bg-dark-700 text-gray-500'
+                      ? 'bg-accent-primary text-dark-900'
+                      : currentStep === step.id - 1
+                        ? 'bg-dark-700 text-text-secondary border border-dark-500'
+                        : 'bg-dark-800 text-dark-400'
                     }
                   `}
                 >
-                  <step.icon className="w-5 h-5" />
+                  <step.icon className={`w-5 h-5 ${currentStep >= step.id ? 'stroke-[2.5]' : ''}`} />
                 </div>
-                <span className={`text-xs mt-1 hidden sm:block ${
-                  currentStep >= step.id ? 'text-white' : 'text-gray-500'
+                <span className={`text-xs mt-1.5 hidden sm:block font-medium ${
+                  currentStep >= step.id ? 'text-accent-primary' : 'text-dark-400'
                 }`}>
                   {step.title}
                 </span>
               </div>
               {index < STEPS.length - 1 && (
                 <div
-                  className={`flex-1 h-0.5 mx-2 transition-all duration-300 ${
+                  className={`flex-1 h-0.5 mx-2 transition-all duration-300 rounded-full ${
                     currentStep > step.id ? 'bg-accent-primary' : 'bg-dark-700'
                   }`}
                 />
@@ -423,17 +427,23 @@ export function SetupWizard({ onComplete }) {
         )}
       </div>
 
-      <div className="px-6 py-4 border-t border-dark-700 flex justify-between">
+      {/* Footer Navigation */}
+      <div className="px-6 py-5 border-t border-dark-700 flex justify-between bg-dark-900/95 backdrop-blur-sm">
         <Button
           variant="ghost"
           onClick={handleBack}
           disabled={currentStep === 1}
+          className="min-w-[100px]"
         >
           <ChevronLeft className="w-5 h-5 mr-1" />
           Back
         </Button>
         {currentStep < 6 ? (
-          <Button onClick={handleNext} disabled={!canProceed()}>
+          <Button
+            onClick={handleNext}
+            disabled={!canProceed()}
+            className="min-w-[100px]"
+          >
             Next
             <ChevronRight className="w-5 h-5 ml-1" />
           </Button>

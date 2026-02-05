@@ -1,27 +1,213 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #12121a; }
-::-webkit-scrollbar-thumb { background: #252532; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+/* ============================================
+   MOTUS Design System
+   Nike/Apple clean + Equinox premium + Gold's Gym iron
+   ============================================ */
 
+/* Base layer overrides */
+@layer base {
+  body {
+    @apply bg-dark-900 text-white antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Refined scrollbar - minimal, premium */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #3a3a3a;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #D4A853;
+  }
+
+  /* Selection color */
+  ::selection {
+    background: rgba(212, 168, 83, 0.3);
+    color: white;
+  }
+}
+
+/* Smooth transitions - refined timing */
 * {
-  transition-property: background-color, border-color, color, fill, stroke;
+  transition-property: background-color, border-color, color, fill, stroke, opacity, transform;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }
 
-.glass {
-  background: rgba(18, 18, 26, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(99, 102, 241, 0.1);
+/* ============================================
+   Component Classes
+   ============================================ */
+
+@layer components {
+  /* Gold gradient text - bold brand accent */
+  .gradient-text {
+    background: linear-gradient(135deg, #D4A853 0%, #F5E6C8 50%, #D4A853 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Subtle gold shimmer for premium feel */
+  .text-gold-shimmer {
+    background: linear-gradient(90deg, #D4A853 0%, #E4B863 50%, #D4A853 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 0% center; }
+    100% { background-position: 200% center; }
+  }
+
+  /* Card with subtle gold border on hover */
+  .card-premium {
+    @apply bg-dark-800 border border-dark-600 rounded-xl;
+    @apply transition-all duration-300;
+  }
+
+  .card-premium:hover {
+    @apply border-dark-500;
+    box-shadow: 0 0 0 1px rgba(212, 168, 83, 0.1);
+  }
+
+  /* Button base - confident, clean */
+  .btn {
+    @apply inline-flex items-center justify-center font-semibold;
+    @apply transition-all duration-200;
+    @apply focus:outline-none focus:ring-2 focus:ring-accent-primary focus:ring-offset-2 focus:ring-offset-dark-900;
+  }
+
+  .btn-primary {
+    @apply bg-accent-primary text-dark-900;
+    @apply hover:bg-accent-primaryHover;
+    @apply active:bg-accent-primaryMuted;
+  }
+
+  .btn-secondary {
+    @apply bg-dark-700 text-white border border-dark-500;
+    @apply hover:bg-dark-600 hover:border-dark-400;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-text-secondary;
+    @apply hover:bg-dark-800 hover:text-white;
+  }
+
+  /* Input styling - clean, minimal */
+  .input {
+    @apply w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg;
+    @apply text-white placeholder-dark-400;
+    @apply focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary;
+    @apply transition-colors duration-200;
+  }
+
+  .input:hover:not(:focus) {
+    @apply border-dark-500;
+  }
+
+  /* Section headers - display font for impact */
+  .section-header {
+    @apply font-display uppercase tracking-wide text-accent-primary;
+  }
+
+  /* Stat display - bold numbers */
+  .stat-value {
+    @apply font-display text-4xl font-bold text-white tracking-tight;
+  }
+
+  .stat-label {
+    @apply text-sm font-medium text-text-secondary uppercase tracking-wider;
+  }
+
+  /* Divider with subtle gold accent */
+  .divider-gold {
+    @apply h-px bg-gradient-to-r from-transparent via-accent-primary/30 to-transparent;
+  }
+
+  /* Tag/Badge styling */
+  .tag {
+    @apply inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded;
+    @apply bg-dark-700 text-text-secondary border border-dark-600;
+  }
+
+  .tag-gold {
+    @apply bg-accent-primary/10 text-accent-primary border-accent-primary/20;
+  }
+
+  /* Progress bar */
+  .progress-track {
+    @apply h-1.5 bg-dark-700 rounded-full overflow-hidden;
+  }
+
+  .progress-bar {
+    @apply h-full bg-accent-primary rounded-full;
+    @apply transition-all duration-500 ease-out;
+  }
+
+  /* Iron texture overlay for rugged feel (optional use) */
+  .texture-iron {
+    position: relative;
+  }
+
+  .texture-iron::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23noise)'/%3E%3C/svg%3E");
+    opacity: 0.02;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+  }
 }
 
-.gradient-text {
-  background: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+/* ============================================
+   Utility Classes
+   ============================================ */
+
+@layer utilities {
+  /* Text utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Gold glow effect */
+  .glow-gold {
+    box-shadow: 0 0 20px rgba(212, 168, 83, 0.15);
+  }
+
+  .glow-gold-lg {
+    box-shadow: 0 0 40px rgba(212, 168, 83, 0.25);
+  }
+
+  /* Border utilities */
+  .border-gold {
+    border-color: rgba(212, 168, 83, 0.3);
+  }
+
+  .border-gold-strong {
+    border-color: #D4A853;
+  }
+
+  /* Focus ring gold variant */
+  .focus-gold:focus {
+    @apply outline-none ring-2 ring-accent-primary ring-offset-2 ring-offset-dark-900;
+  }
 }

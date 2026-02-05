@@ -6,11 +6,11 @@ import {
   Calendar,
   Utensils,
   Dumbbell,
-  Plus,
   Zap,
   ChevronRight,
+  Play,
 } from 'lucide-react';
-import { Card, CardBody, Button, ProgressBar, CircularProgress, ProgressWidget, ProgramOverview } from '../shared';
+import { Card, CardBody, Button, ProgressBar, ProgressWidget, ProgramOverview } from '../shared';
 import {
   calculateCaloriesBurned,
   estimateDailyCalories,
@@ -85,120 +85,87 @@ export function Dashboard({
 
   // Calculate remaining calories
   const netCalories = consumed.calories - estimatedEOD;
-  const remainingCalories = macros.calories - consumed.calories;
 
   return (
-    <div className="min-h-screen bg-dark-900 pb-20">
-      {/* Header */}
-      <header className="px-6 py-5 bg-dark-800 border-b border-dark-700">
+    <div className="min-h-screen bg-dark-900 pb-24">
+      {/* Header - Clean, confident */}
+      <header className="px-6 pt-8 pb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-white">
-              Hey, {profile.name?.split(' ')[0] || 'Athlete'} 👋
-            </h1>
-            <p className="text-gray-400 text-sm">
+            <p className="text-text-muted text-sm font-medium uppercase tracking-wider mb-1">
               {new Date().toLocaleDateString('en-US', {
                 weekday: 'long',
                 month: 'short',
                 day: 'numeric',
               })}
             </p>
+            <h1 className="text-2xl font-bold text-white tracking-tight">
+              {profile.name?.split(' ')[0] || 'Athlete'}
+            </h1>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🔥</span>
-            <span className="text-lg font-semibold text-white">
-              Week {program?.currentWeek || 1}
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-xs text-text-muted uppercase tracking-wider">Week</p>
+              <p className="text-xl font-display font-bold text-accent-primary">
+                {program?.currentWeek || 1}
+              </p>
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="p-6 space-y-6">
-        {/* Calorie Balance Card - Clickable */}
-        <Card hover onClick={onViewNutrition}>
-          <CardBody>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Flame className="w-5 h-5 text-accent-warning" />
-                Today's Energy Balance
+      <div className="px-6 space-y-5">
+        {/* Energy Balance Card */}
+        <Card hover onClick={onViewNutrition} className="overflow-hidden">
+          <CardBody className="p-0">
+            {/* Header bar */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-dark-600">
+              <h2 className="font-semibold text-white flex items-center gap-2">
+                <Flame className="w-5 h-5 text-accent-primary" />
+                Energy Balance
               </h2>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
+              <ChevronRight className="w-5 h-5 text-dark-400" />
             </div>
 
-            {/* Main Calorie Display */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              {/* Calories Burned */}
-              <div className="text-center p-3 bg-dark-700 rounded-lg">
-                <Zap className="w-5 h-5 text-accent-danger mx-auto mb-1" />
-                <p className="text-2xl font-bold text-white">{dailyBurn.totalDailyBurn}</p>
-                <p className="text-xs text-gray-400">Burned</p>
+            {/* Main stats */}
+            <div className="grid grid-cols-3 divide-x divide-dark-600">
+              {/* Burned */}
+              <div className="p-4 text-center">
+                <Zap className="w-5 h-5 text-accent-danger mx-auto mb-2" />
+                <p className="font-display text-2xl font-bold text-white">{dailyBurn.totalDailyBurn}</p>
+                <p className="text-xs text-text-muted uppercase tracking-wide mt-1">Burned</p>
               </div>
 
-              {/* Net Calories */}
-              <div className="text-center p-3 bg-gradient-to-b from-accent-primary/20 to-dark-700 rounded-lg border border-accent-primary/30">
-                <p className="text-xs text-gray-400 mb-1">Net</p>
-                <p className={`text-3xl font-bold ${
-                  netCalories < 0 ? 'text-accent-success' : 'text-accent-warning'
+              {/* Net */}
+              <div className="p-4 text-center bg-dark-700/50">
+                <p className="text-xs text-text-muted uppercase tracking-wide mb-2">Net</p>
+                <p className={`font-display text-3xl font-bold ${
+                  netCalories < 0 ? 'text-accent-success' : 'text-accent-primary'
                 }`}>
                   {netCalories > 0 ? '+' : ''}{netCalories}
                 </p>
-                <p className="text-xs text-gray-400">kcal</p>
+                <p className="text-xs text-text-muted mt-1">kcal</p>
               </div>
 
-              {/* Calories Consumed */}
-              <div className="text-center p-3 bg-dark-700 rounded-lg">
-                <Utensils className="w-5 h-5 text-accent-success mx-auto mb-1" />
-                <p className="text-2xl font-bold text-white">{consumed.calories}</p>
-                <p className="text-xs text-gray-400">Consumed</p>
+              {/* Consumed */}
+              <div className="p-4 text-center">
+                <Utensils className="w-5 h-5 text-accent-success mx-auto mb-2" />
+                <p className="font-display text-2xl font-bold text-white">{consumed.calories}</p>
+                <p className="text-xs text-text-muted uppercase tracking-wide mt-1">Eaten</p>
               </div>
             </div>
 
-            {/* Estimated EOD */}
-            <div className="p-3 bg-dark-700 rounded-lg mb-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">Est. EOD Burn</span>
-                <span className="text-white font-medium">{estimatedEOD} kcal</span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                {remainingWorkouts.length > 0
-                  ? `Includes ${remainingWorkouts.length} scheduled workout(s)`
-                  : 'All workouts completed'}
-              </p>
+            {/* Macro bars */}
+            <div className="px-5 py-4 space-y-3 border-t border-dark-600">
+              <MacroBar label="Protein" current={consumed.protein} target={macros.protein} color="primary" />
+              <MacroBar label="Carbs" current={consumed.carbs} target={macros.carbs} color="warning" />
+              <MacroBar label="Fat" current={consumed.fat} target={macros.fat} color="secondary" />
             </div>
-
-            {/* Macro Summary */}
-            <div className="space-y-2">
-              <MacroBar
-                label="Protein"
-                current={consumed.protein}
-                target={macros.protein}
-                color="success"
-                unit="g"
-              />
-              <MacroBar
-                label="Carbs"
-                current={consumed.carbs}
-                target={macros.carbs}
-                color="warning"
-                unit="g"
-              />
-              <MacroBar
-                label="Fat"
-                current={consumed.fat}
-                target={macros.fat}
-                color="secondary"
-                unit="g"
-              />
-            </div>
-
-            <p className="text-xs text-center text-gray-500 mt-3">
-              Tap for detailed nutrition breakdown →
-            </p>
           </CardBody>
         </Card>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <Button variant="secondary" onClick={onLogMeal} className="py-4">
             <Utensils className="w-5 h-5 mr-2" />
             Log Meal
@@ -209,10 +176,129 @@ export function Dashboard({
           </Button>
         </div>
 
-        {/* Program Overview - High level program summary */}
+        {/* Today's Training */}
+        <Card>
+          <CardBody className="p-0">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-dark-600">
+              <h2 className="font-semibold text-white flex items-center gap-2">
+                <Dumbbell className="w-5 h-5 text-accent-primary" />
+                Today's Training
+              </h2>
+              {caloriesBurnedFromWorkouts > 0 && (
+                <span className="text-sm text-text-muted">
+                  <Flame className="w-4 h-4 inline mr-1 text-accent-danger" />
+                  {caloriesBurnedFromWorkouts} kcal
+                </span>
+              )}
+            </div>
+
+            <div className="p-5">
+              {todaysSchedule && !todaysSchedule.isRestDay ? (
+                <div className="space-y-3">
+                  {todaysSchedule.sessions?.map((session, idx) => {
+                    const isCompleted = todaysWorkouts.some(
+                      (w) => w.sessionTime === session.time
+                    );
+                    const estimatedBurn = calculateCaloriesBurned(
+                      weightLbs,
+                      session.type || program?.primarySubtype,
+                      session.duration || 60,
+                      7
+                    );
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-4 rounded-xl border transition-all ${
+                          isCompleted
+                            ? 'bg-accent-success/5 border-accent-success/20'
+                            : 'bg-dark-700 border-dark-600 hover:border-dark-500'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`px-2 py-1 text-xs font-semibold rounded ${
+                                session.time === 'AM'
+                                  ? 'bg-accent-primary/10 text-accent-primary'
+                                  : 'bg-blue-500/10 text-blue-400'
+                              }`}
+                            >
+                              {session.time}
+                            </span>
+                            <span className="font-medium text-white">{session.focus}</span>
+                            {isCompleted && (
+                              <span className="text-accent-success text-sm">✓ Done</span>
+                            )}
+                          </div>
+                          <span className="text-sm text-text-muted">~{estimatedBurn} kcal</span>
+                        </div>
+
+                        <p className="text-sm text-text-secondary mb-3">
+                          {session.duration} min • {session.exercises?.length || 0} exercises
+                        </p>
+
+                        {!isCompleted && (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            className="w-full"
+                            onClick={onViewProgram}
+                          >
+                            <Play className="w-4 h-4 mr-2" />
+                            Start Workout
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-dark-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-3xl">🧘</span>
+                  </div>
+                  <p className="font-semibold text-white mb-1">Rest Day</p>
+                  <p className="text-sm text-text-muted">
+                    Recovery is when gains happen
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* Program Overview */}
         <ProgramOverview profile={profile} program={program} />
 
-        {/* Daily Progress Tracking Widget */}
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 gap-3">
+          <Card>
+            <CardBody className="text-center py-5">
+              <div className="w-12 h-12 bg-accent-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <Target className="w-6 h-6 text-accent-primary" />
+              </div>
+              <p className="font-display text-xl font-bold text-white">
+                {program?.currentPhase || 'Base'}
+              </p>
+              <p className="text-xs text-text-muted uppercase tracking-wider mt-1">Phase</p>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody className="text-center py-5">
+              <div className="w-12 h-12 bg-accent-success/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <TrendingUp className="w-6 h-6 text-accent-success" />
+              </div>
+              <p className="font-display text-xl font-bold text-white">
+                {todaysWorkouts.length}/{scheduledSessions.length || 0}
+              </p>
+              <p className="text-xs text-text-muted uppercase tracking-wider mt-1">Complete</p>
+            </CardBody>
+          </Card>
+        </div>
+
+        {/* Progress Widget */}
         <ProgressWidget
           profile={profile}
           program={program}
@@ -222,123 +308,24 @@ export function Dashboard({
           todaysWorkouts={todaysWorkouts}
         />
 
-        {/* Today's Workout */}
-        <Card>
-          <CardBody>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Dumbbell className="w-5 h-5 text-accent-primary" />
-                Today's Training
-              </h2>
-              <span className="text-sm text-gray-400">
-                {caloriesBurnedFromWorkouts > 0 && `🔥 ${caloriesBurnedFromWorkouts} kcal`}
-              </span>
-            </div>
-
-            {todaysSchedule && !todaysSchedule.isRestDay ? (
-              <div className="space-y-3">
-                {todaysSchedule.sessions?.map((session, idx) => {
-                  const isCompleted = todaysWorkouts.some(
-                    (w) => w.sessionTime === session.time
-                  );
-                  const estimatedBurn = calculateCaloriesBurned(
-                    weightLbs,
-                    session.type || program?.primarySubtype,
-                    session.duration || 60,
-                    7
-                  );
-
-                  return (
-                    <div
-                      key={idx}
-                      className={`p-4 rounded-lg border ${
-                        isCompleted
-                          ? 'bg-accent-success/10 border-accent-success/30'
-                          : 'bg-dark-700 border-dark-600'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-2 py-0.5 text-xs rounded ${
-                              session.time === 'AM'
-                                ? 'bg-yellow-500/20 text-yellow-400'
-                                : 'bg-blue-500/20 text-blue-400'
-                            }`}
-                          >
-                            {session.time}
-                          </span>
-                          <span className="font-medium text-white">{session.focus}</span>
-                          {isCompleted && <span className="text-accent-success">✓</span>}
-                        </div>
-                        <span className="text-sm text-gray-400">~{estimatedBurn} kcal</span>
-                      </div>
-
-                      <div className="text-sm text-gray-400">
-                        {session.duration} min • {session.exercises?.length || 0} exercises
-                      </div>
-
-                      {!isCompleted && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="mt-3 w-full"
-                          onClick={onViewProgram}
-                        >
-                          Start Workout
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <span className="text-4xl mb-2 block">🧘</span>
-                <p className="text-gray-400">Rest Day</p>
-                <p className="text-sm text-gray-500">
-                  Recovery is when gains happen!
-                </p>
-              </div>
-            )}
-          </CardBody>
-        </Card>
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card>
-            <CardBody className="text-center">
-              <Target className="w-8 h-8 text-accent-primary mx-auto mb-2" />
-              <div className="text-2xl font-bold text-white">
-                {program?.currentPhase || 'Base'}
-              </div>
-              <p className="text-sm text-gray-400">Current Phase</p>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardBody className="text-center">
-              <TrendingUp className="w-8 h-8 text-accent-success mx-auto mb-2" />
-              <div className="text-2xl font-bold text-white">
-                {todaysWorkouts.length}/{scheduledSessions.length || 0}
-              </div>
-              <p className="text-sm text-gray-400">Workouts Done</p>
-            </CardBody>
-          </Card>
-        </div>
-
-        {/* Program Info */}
+        {/* Program Card */}
         <Card hover onClick={onViewProgram}>
           <CardBody>
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-white">{program?.name || 'Your Program'}</h3>
-                <p className="text-sm text-gray-400 mt-1">
-                  {program?.isHybrid && '🔥 Hybrid • '}
+                <p className="text-xs text-accent-primary uppercase tracking-wider font-semibold mb-1">
+                  {program?.isHybrid && 'Hybrid • '}{program?.athleteLevel || 'Intermediate'}
+                </p>
+                <h3 className="font-semibold text-white text-lg">
+                  {program?.name || 'Your Program'}
+                </h3>
+                <p className="text-sm text-text-secondary mt-1">
                   Week {program?.currentWeek || 1} of {program?.mesocycleWeeks || 4}
                 </p>
               </div>
-              <Calendar className="w-6 h-6 text-gray-400" />
+              <div className="w-10 h-10 bg-dark-700 rounded-xl flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-text-secondary" />
+              </div>
             </div>
 
             <div className="mt-4">
@@ -346,17 +333,9 @@ export function Dashboard({
                 value={program?.currentWeek || 1}
                 max={program?.mesocycleWeeks || 4}
                 color="primary"
+                size="sm"
               />
             </div>
-
-            {/* Vacation Alert */}
-            {program?.vacations?.length > 0 && (
-              <div className="mt-3 p-2 bg-accent-secondary/10 rounded-lg">
-                <p className="text-xs text-accent-secondary">
-                  ✈️ {program.vacations.length} vacation(s) scheduled - deloads aligned
-                </p>
-              </div>
-            )}
           </CardBody>
         </Card>
       </div>
@@ -364,20 +343,19 @@ export function Dashboard({
   );
 }
 
-function MacroBar({ label, current, target, color, unit }) {
+function MacroBar({ label, current, target, color }) {
   const percentage = Math.min((current / target) * 100, 100);
   const isOver = current > target;
 
   return (
-    <div>
-      <div className="flex justify-between text-sm mb-1">
-        <span className="text-gray-400">{label}</span>
-        <span className={isOver ? 'text-accent-danger' : 'text-white'}>
-          {current}
-          <span className="text-gray-500">/{target}{unit}</span>
-        </span>
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-text-muted uppercase tracking-wide w-16">{label}</span>
+      <div className="flex-1">
+        <ProgressBar value={current} max={target} color={isOver ? 'danger' : color} size="xs" />
       </div>
-      <ProgressBar value={current} max={target} color={isOver ? 'danger' : color} size="sm" />
+      <span className={`text-sm tabular-nums ${isOver ? 'text-accent-danger' : 'text-white'}`}>
+        {current}<span className="text-text-muted">/{target}g</span>
+      </span>
     </div>
   );
 }
