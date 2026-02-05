@@ -699,12 +699,20 @@ function calculateSmartMacros(tdee, formData, weightLbs) {
 // Step 1: Personal Info
 function StepPersonalInfo({ formData, updateFormData, user, signInWithGoogle, isAuthenticated, isConfigured }) {
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [signInError, setSignInError] = useState(null);
 
   const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
-    const { error } = await signInWithGoogle();
-    if (error) {
-      console.error('Sign in error:', error);
+    setSignInError(null);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        console.error('Sign in error:', error);
+        setSignInError(error.message || 'Failed to sign in. Please try again.');
+      }
+    } catch (err) {
+      console.error('Unexpected sign in error:', err);
+      setSignInError('An unexpected error occurred. Please try again.');
     }
     setIsSigningIn(false);
   };
@@ -742,6 +750,14 @@ function StepPersonalInfo({ formData, updateFormData, user, signInWithGoogle, is
               <p className="text-sm text-gray-400 mb-3">
                 Sign in to sync your data across all your devices
               </p>
+              {signInError && (
+                <div className="mb-3 p-3 bg-red-900/30 border border-red-700 rounded-lg">
+                  <p className="text-sm text-red-400">{signInError}</p>
+                  <p className="text-xs text-red-500 mt-1">
+                    Note: Google sign-in requires proper Supabase configuration. You can skip this and use the app offline.
+                  </p>
+                </div>
+              )}
               <button
                 onClick={handleGoogleSignIn}
                 disabled={isSigningIn}
@@ -1008,6 +1024,10 @@ function StepPrimaryGoal({ formData, updateFormData }) {
                 updateFormData('secondaryProgramType', '');
                 updateFormData('secondarySubtype', '');
                 updateFormData('allowDoubleDays', false);
+              }
+              // Auto-set nutrition goal to recomp for aesthetic programs
+              if (program.id === 'aesthetic') {
+                updateFormData('nutritionGoal', 'recomp');
               }
             }}
             className={`p-4 rounded-xl border text-left transition-all ${
@@ -1563,27 +1583,25 @@ function StepGoalDetails({ formData = {}, updateFormData, updateStrengthGoal, st
       );
     }
 
-    // Aesthetic goals - body fat target
+    // Aesthetic goals - body fat target (current BF% already collected in body stats)
     if (programType === 'aesthetic') {
+      const currentBF = parseFloat(formData.bodyFatPercent) || 0;
+      const targetBF = parseFloat(formData.targetBodyFat) || 0;
+      const bfDifference = currentBF - targetBF;
+
       return (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-white">💪 Physique Goals</h3>
           <p className="text-sm text-gray-400">Set your body composition targets</p>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Current Body Fat % (Estimate)
-            </label>
-            <input
-              type="number"
-              value={formData.currentBodyFat}
-              onChange={(e) => updateFormData('currentBodyFat', e.target.value)}
-              placeholder="e.g., 20"
-              min="5"
-              max="50"
-              className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
-            />
-          </div>
+          {/* Show current BF from body stats if entered */}
+          {formData.bodyFatPercent && (
+            <div className="p-3 bg-dark-700/50 rounded-lg border border-dark-600">
+              <p className="text-sm text-gray-400">
+                Current Body Fat: <span className="text-white font-medium">{formData.bodyFatPercent}%</span>
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -1616,12 +1634,12 @@ function StepGoalDetails({ formData = {}, updateFormData, updateStrengthGoal, st
             />
           </div>
 
-          {formData.currentBodyFat && formData.targetBodyFat && (
+          {currentBF > 0 && targetBF > 0 && bfDifference > 0 && (
             <div className="p-4 bg-dark-700 rounded-lg">
               <p className="text-white">
                 📊 You're looking to reduce body fat by{' '}
                 <span className="text-accent-primary font-bold">
-                  {parseFloat(formData.currentBodyFat) - parseFloat(formData.targetBodyFat)}%
+                  {bfDifference.toFixed(1)}%
                 </span>
               </p>
             </div>
@@ -1732,30 +1750,62 @@ function StepGoalDetails({ formData = {}, updateFormData, updateStrengthGoal, st
         </p>
       </div>
 
-      {/* Nutrition Goal */}
+      {/* Nutrition Goal - Auto-set to recomp for aesthetic programs */}
       <div className="pt-6 border-t border-dark-600">
         <h3 className="text-lg font-semibold text-white mb-4">🍎 Nutrition Goal</h3>
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { id: 'maintain', label: 'Maintain', desc: 'Keep current weight' },
-            { id: 'recomp', label: 'Recomp', desc: 'Lose fat, keep muscle' },
-            { id: 'lose', label: 'Lose Weight', desc: 'Calorie deficit' },
-            { id: 'gain', label: 'Gain Weight', desc: 'Calorie surplus' },
-          ].map((goal) => (
-            <button
-              key={goal.id}
-              onClick={() => updateFormData('nutritionGoal', goal.id)}
-              className={`p-3 rounded-lg border text-left ${
-                formData.nutritionGoal === goal.id
-                  ? 'bg-accent-primary/20 border-accent-primary'
-                  : 'bg-dark-700 border-dark-500'
-              }`}
-            >
-              <span className="text-white font-medium">{goal.label}</span>
-              <p className="text-xs text-gray-400">{goal.desc}</p>
-            </button>
-          ))}
-        </div>
+
+        {/* Aesthetic programs: Lock to recomp with explanation */}
+        {programType === 'aesthetic' ? (
+          <div className="space-y-3">
+            <div className="p-4 bg-accent-primary/20 border border-accent-primary rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-white font-medium">Body Recomposition</span>
+                <span className="px-2 py-0.5 text-xs bg-accent-primary/30 text-accent-primary rounded">Optimal for Aesthetics</span>
+              </div>
+              <p className="text-sm text-gray-300">
+                Simultaneously lose fat while building/maintaining muscle through strategic nutrition timing and macros.
+              </p>
+            </div>
+            <div className="p-3 bg-dark-700 rounded-lg">
+              <p className="text-xs text-gray-400">
+                <strong className="text-gray-300">Recomp Strategy:</strong> Eat at maintenance calories with high protein (1g/lb bodyweight).
+                Slight deficit on rest days, slight surplus on training days. This approach maximizes muscle retention while losing fat.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { id: 'maintain', label: 'Maintain', desc: 'Keep current weight' },
+              { id: 'recomp', label: 'Recomp', desc: 'Lose fat, keep muscle' },
+              { id: 'lose', label: 'Lose Weight', desc: 'Calorie deficit' },
+              { id: 'gain', label: 'Gain Weight', desc: 'Calorie surplus' },
+            ].map((goal) => (
+              <button
+                key={goal.id}
+                onClick={() => updateFormData('nutritionGoal', goal.id)}
+                className={`p-3 rounded-lg border text-left ${
+                  formData.nutritionGoal === goal.id
+                    ? 'bg-accent-primary/20 border-accent-primary'
+                    : 'bg-dark-700 border-dark-500'
+                }`}
+              >
+                <span className="text-white font-medium">{goal.label}</span>
+                <p className="text-xs text-gray-400">{goal.desc}</p>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Recomp explanation for non-aesthetic programs when recomp is selected */}
+        {programType !== 'aesthetic' && formData.nutritionGoal === 'recomp' && (
+          <div className="mt-3 p-3 bg-dark-700 rounded-lg">
+            <p className="text-xs text-gray-400">
+              <strong className="text-gray-300">Recomp Strategy:</strong> Eat at maintenance with high protein (1g/lb bodyweight).
+              Slight deficit on rest days, slight surplus on training days.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

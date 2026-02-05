@@ -35,16 +35,40 @@ export function AuthProvider({ children }) {
   const signInWithGoogle = async () => {
     if (!isSupabaseConfigured()) {
       console.error('Supabase not configured');
-      return { error: { message: 'Authentication not configured' } };
+      return { error: { message: 'Authentication not configured. Please check your Supabase credentials.' } };
     }
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin
+    try {
+      // Use the current origin for redirect, ensuring it matches Supabase config
+      const redirectUrl = window.location.origin;
+      console.log('OAuth redirect URL:', redirectUrl);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Google OAuth error:', error);
+        return { data: null, error };
       }
-    });
-    return { data, error };
+
+      return { data, error: null };
+    } catch (err) {
+      console.error('Unexpected error during Google sign-in:', err);
+      return {
+        data: null,
+        error: {
+          message: err.message || 'Failed to initiate Google sign-in. Please try again.'
+        }
+      };
+    }
   };
 
   const signOut = async () => {

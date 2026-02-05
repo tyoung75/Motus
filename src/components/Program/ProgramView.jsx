@@ -88,10 +88,19 @@ const getWeeklySummary = (weekNumber, totalWeeks, phases, program) => {
       text: 'Reduced volume (60%) - focus on recovery',
     });
   } else if (phase === 'Peak') {
+    // Program-type-specific peak phase messaging
+    let peakText = 'Peak intensity training';
+    if (program?.primaryGoal === 'endurance') {
+      peakText = 'Peak intensity - race simulation workouts';
+    } else if (program?.primaryGoal === 'strength') {
+      peakText = 'Peak intensity - test maxes and competition prep';
+    } else if (program?.primaryGoal === 'aesthetic') {
+      peakText = 'Peak intensity - maximum pump and definition';
+    }
     changes.push({
       type: 'peak',
       icon: '⚡',
-      text: 'Peak intensity - race simulation workouts',
+      text: peakText,
     });
   } else if (phase.includes('Build') && weekNumber > 1) {
     changes.push({
@@ -645,7 +654,10 @@ export function ProgramView({ program, completedWorkouts, onCompleteExercise, on
                         </div>
                         <div className="text-left">
                           <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 text-xs rounded ${session.time === 'AM' ? 'bg-yellow-500/20 text-yellow-400' : session.time === 'PM' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}>{session.time}</span>
+                            {/* Only show time badge for AM/PM sessions (hybrid programs) */}
+                            {(session.time === 'AM' || session.time === 'PM') && (
+                              <span className={`px-2 py-0.5 text-xs rounded ${session.time === 'AM' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'}`}>{session.time}</span>
+                            )}
                             <h3 className="font-semibold text-white">{session.focus}</h3>
                           </div>
                           <div className="flex items-center gap-3 mt-1 text-sm text-gray-400">

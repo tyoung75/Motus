@@ -66,45 +66,53 @@ export function ProgramOverview({ profile, program }) {
     return breakdown;
   };
 
-  // Get phase focus description
+  // Get phase focus description - program-type-specific
   const getPhaseFocus = (phaseName) => {
-    const focuses = {
-      'Base': {
-        focus: 'Building aerobic foundation & movement patterns',
-        intensity: 'Low-Moderate',
-        icon: '🏃',
-      },
-      'Build 1': {
-        focus: 'Increasing volume & introducing intensity',
-        intensity: 'Moderate',
-        icon: '📈',
-      },
-      'Build 2': {
-        focus: 'Peak volume & race-specific workouts',
-        intensity: 'Moderate-High',
-        icon: '🔥',
-      },
-      'Build': {
-        focus: 'Progressive overload & strength gains',
-        intensity: 'Moderate-High',
-        icon: '💪',
-      },
-      'Peak': {
-        focus: 'Sharpening fitness & race simulation',
-        intensity: 'High',
-        icon: '⚡',
-      },
-      'Taper': {
-        focus: 'Reducing volume, maintaining intensity',
-        intensity: 'Low (recovery)',
-        icon: '🎯',
-      },
-      'Deload': {
-        focus: 'Active recovery & adaptation',
-        intensity: 'Low',
-        icon: '🧘',
-      },
+    // Endurance-specific descriptions
+    const enduranceFocuses = {
+      'Base': { focus: 'Building aerobic foundation & movement patterns', intensity: 'Low-Moderate', icon: '🏃' },
+      'Build 1': { focus: 'Increasing volume & introducing intensity', intensity: 'Moderate', icon: '📈' },
+      'Build 2': { focus: 'Peak volume & race-specific workouts', intensity: 'Moderate-High', icon: '🔥' },
+      'Build': { focus: 'Increasing mileage & race-specific workouts', intensity: 'Moderate-High', icon: '🏃' },
+      'Peak': { focus: 'Sharpening fitness & race simulation', intensity: 'High', icon: '⚡' },
+      'Taper': { focus: 'Reducing volume for race readiness', intensity: 'Low (recovery)', icon: '🎯' },
+      'Deload': { focus: 'Active recovery & adaptation', intensity: 'Low', icon: '🧘' },
     };
+
+    // Strength-specific descriptions
+    const strengthFocuses = {
+      'Base': { focus: 'Building movement patterns & work capacity', intensity: 'Low-Moderate', icon: '🏋️' },
+      'Build 1': { focus: 'Progressive overload & strength gains', intensity: 'Moderate', icon: '📈' },
+      'Build 2': { focus: 'Heavy singles & competition prep', intensity: 'Moderate-High', icon: '🔥' },
+      'Build': { focus: 'Progressive overload & strength gains', intensity: 'Moderate-High', icon: '💪' },
+      'Peak': { focus: 'Testing maxes & competition preparation', intensity: 'High', icon: '⚡' },
+      'Taper': { focus: 'Reducing volume for max strength', intensity: 'Low (maintain)', icon: '🎯' },
+      'Deload': { focus: 'Active recovery & CNS restoration', intensity: 'Low', icon: '🧘' },
+    };
+
+    // Aesthetic-specific descriptions
+    const aestheticFocuses = {
+      'Base': { focus: 'Building mind-muscle connection & form', intensity: 'Low-Moderate', icon: '💪' },
+      'Build 1': { focus: 'Increasing volume & hypertrophy', intensity: 'Moderate', icon: '📈' },
+      'Build 2': { focus: 'Peak volume & maximum pump', intensity: 'Moderate-High', icon: '🔥' },
+      'Build': { focus: 'Progressive overload & muscle building', intensity: 'Moderate-High', icon: '💪' },
+      'Peak': { focus: 'Maximum intensity & muscle definition', intensity: 'High', icon: '⚡' },
+      'Taper': { focus: 'Reducing fatigue for peak aesthetics', intensity: 'Low (maintain)', icon: '🎯' },
+      'Deload': { focus: 'Active recovery & muscle repair', intensity: 'Low', icon: '🧘' },
+    };
+
+    // Select based on program type
+    let focuses;
+    if (primaryGoal === 'endurance') {
+      focuses = enduranceFocuses;
+    } else if (primaryGoal === 'strength') {
+      focuses = strengthFocuses;
+    } else if (primaryGoal === 'aesthetic') {
+      focuses = aestheticFocuses;
+    } else {
+      focuses = strengthFocuses; // Default to strength
+    }
+
     return focuses[phaseName] || { focus: 'Training adaptation', intensity: 'Moderate', icon: '💪' };
   };
 

@@ -73,37 +73,61 @@ Key Principles to Apply:
 6. VACATION HANDLING: Mark vacation weeks as deload/rest, show trip names`;
 
     // Build the user prompt with all the new details
-    let userPrompt = `Create a comprehensive ${profile.daysPerWeek}-day per week training program.
+    // Support both daysPerWeek and desiredTrainingDays
+    const trainingDays = profile.daysPerWeek || profile.desiredTrainingDays || 4;
+
+    let userPrompt = `Create a comprehensive ${trainingDays}-day per week training program.
 
 ATHLETE PROFILE:
 - Name: ${profile.name}
 - Age: ${profile.age}
 - Weight: ${profile.weight} ${profile.weightUnit}
-- Experience: ${profile.experienceLevel}
-- Session Duration: ${profile.sessionDuration} minutes
+- Experience: ${profile.experienceLevel || profile.trainingHistory || 'intermediate'}
+- Session Duration: ${profile.sessionDuration || 60} minutes
 - Equipment: ${profile.equipment === 'full' ? 'Full gym access' : profile.equipment === 'home' ? 'Home gym' : 'Minimal/bodyweight'}
 
 PRIMARY GOAL: ${profile.programType} - ${profile.programSubtype}
 `;
 
     // Add goal-specific details
-    if (profile.programType === 'endurance' && profile.programSubtype === 'marathon') {
+    // Endurance - running/marathon
+    if (profile.programType === 'endurance' && (profile.programSubtype === 'marathon' || profile.programSubtype === 'running')) {
       userPrompt += `
 RACE DETAILS:
-- Distance: ${profile.raceDistance}
-- Race Date: ${profile.raceDate}
-- Target Time: ${profile.targetFinishTime || 'Not specified'}
+- Distance: ${profile.raceDistance || 'Half Marathon'}
+- Race Date: ${profile.raceDate || 'Not specified'}
+- Target Time: ${profile.targetFinishHours ? `${profile.targetFinishHours}:${profile.targetFinishMinutes || '00'}:${profile.targetFinishSeconds || '00'}` : 'Not specified'}
 - Current Weekly Mileage: ${profile.currentWeeklyMileage || 0} miles
+- Longest Recent Run: ${profile.longestRecentRun || 0} miles
 `;
     }
 
-    if (profile.programType === 'weightlifting' && profile.programSubtype === 'strength') {
+    // Strength programs (powerlifting, olympic, strongman)
+    if (profile.programType === 'strength') {
+      // Extract strength goals from the strengthGoals array
+      const goals = profile.strengthGoals || [];
+      const squat = goals.find(g => g.id === 'squat') || {};
+      const bench = goals.find(g => g.id === 'bench') || {};
+      const deadlift = goals.find(g => g.id === 'deadlift') || {};
+      const ohp = goals.find(g => g.id === 'ohp') || {};
+
       userPrompt += `
 STRENGTH GOALS:
-- Squat: ${profile.currentSquat || '?'} → ${profile.targetSquat || '?'} lbs
-- Bench: ${profile.currentBench || '?'} → ${profile.targetBench || '?'} lbs
-- Deadlift: ${profile.currentDeadlift || '?'} → ${profile.targetDeadlift || '?'} lbs
-- OHP: ${profile.currentOHP || '?'} → ${profile.targetOHP || '?'} lbs
+- Goal Date: ${profile.strengthGoalDate || 'Not specified'}
+- Squat: ${squat.current || '?'} → ${squat.target || '?'} lbs
+- Bench: ${bench.current || '?'} → ${bench.target || '?'} lbs
+- Deadlift: ${deadlift.current || '?'} → ${deadlift.target || '?'} lbs
+- OHP: ${ohp.current || '?'} → ${ohp.target || '?'} lbs
+`;
+    }
+
+    // Aesthetic programs (hypertrophy, lean-muscle, recomp)
+    if (profile.programType === 'aesthetic') {
+      userPrompt += `
+AESTHETIC GOALS:
+- Current Body Fat: ${profile.currentBodyFat || '?'}%
+- Target Body Fat: ${profile.targetBodyFat || '?'}%
+- Goal Date: ${profile.aestheticGoalDate || 'Not specified'}
 `;
     }
 
@@ -174,14 +198,14 @@ Generate a complete 4-week mesocycle with:
       throw new Error('Invalid program format from AI');
     }
 
-    // Add metadata
+    // Add metadata (support both field naming conventions)
     program.primaryGoal = profile.programType;
     program.primarySubtype = profile.programSubtype;
     program.secondaryGoal = profile.secondaryProgramType || null;
     program.secondarySubtype = profile.secondarySubtype || null;
     program.isHybrid = profile.enableHybrid || false;
     program.allowDoubleDays = profile.allowDoubleDays || false;
-    program.daysPerWeek = profile.daysPerWeek;
+    program.daysPerWeek = profile.daysPerWeek || profile.desiredTrainingDays || 4;
     program.vacations = profile.vacations || [];
     program.generatedAt = new Date().toISOString();
 

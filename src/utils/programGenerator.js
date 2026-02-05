@@ -32,11 +32,12 @@ function calculateAthleteLevel(formData) {
 // ============ PROGRAM LENGTH CALCULATION ============
 
 function calculateProgramLength(formData) {
-  const { raceDate, aestheticGoalDate, targetDate, programType, programSubtype } = formData;
+  const { raceDate, aestheticGoalDate, targetDate, strengthGoalDate, programType, programSubtype } = formData;
 
   let goalDate = null;
   if (raceDate) goalDate = new Date(raceDate);
   else if (aestheticGoalDate) goalDate = new Date(aestheticGoalDate);
+  else if (strengthGoalDate) goalDate = new Date(strengthGoalDate);
   else if (targetDate) goalDate = new Date(targetDate);
 
   if (goalDate) {
@@ -1874,30 +1875,41 @@ function createSmartHybridSchedule(
 // ============ MAIN GENERATOR ============
 
 export function generateProgram(formData) {
+  // Defensive: handle missing formData
+  if (!formData) {
+    console.error('generateProgram called with no formData');
+    formData = {};
+  }
+
   let {
-    programType,
-    programSubtype,
-    desiredTrainingDays,
-    enableHybrid,
-    secondaryProgramType,
-    allowDoubleDays,
-    currentWeeklyMileage,
-    longestRecentRun,
+    programType = 'strength',
+    programSubtype = 'powerlifting',
+    desiredTrainingDays = 4,
+    enableHybrid = false,
+    secondaryProgramType = '',
+    allowDoubleDays = false,
+    currentWeeklyMileage = 0,
+    longestRecentRun = 0,
     vacations = [],
-    targetFinishHours,
-    targetFinishMinutes,
-    targetFinishSeconds,
-    raceDistance,
+    targetFinishHours = '',
+    targetFinishMinutes = '',
+    targetFinishSeconds = '',
+    raceDistance = '',
     // Baseline performance data
-    baselineRaceDistance,
-    baselineTimeHours,
-    baselineTimeMinutes,
-    baselineTimeSeconds,
+    baselineRaceDistance = '',
+    baselineTimeHours = '',
+    baselineTimeMinutes = '',
+    baselineTimeSeconds = '',
     // Strength baselines
     strengthGoals = [],
     // Program start date
-    programStartDate,
+    programStartDate = '',
   } = formData;
+
+  // Ensure desiredTrainingDays is a valid number
+  desiredTrainingDays = parseInt(desiredTrainingDays) || 4;
+  if (desiredTrainingDays < 2) desiredTrainingDays = 2;
+  if (desiredTrainingDays > 7) desiredTrainingDays = 7;
 
   // TRIATHLON SPECIAL HANDLING:
   // - Automatically enable hybrid with strength focus
@@ -1937,7 +1949,7 @@ export function generateProgram(formData) {
   const splitTemplate = SPLIT_TEMPLATES[Math.min(desiredTrainingDays, 6)]?.[splitType]
     || SPLIT_TEMPLATES[4][splitType];
 
-  const currentPhase = phases[0];
+  const currentPhase = phases[0] || 'Base';
   const currentWeek = 1;
   const isDeload = currentPhase === 'Deload' || currentPhase === 'Taper';
 
