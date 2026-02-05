@@ -286,6 +286,40 @@ export function ProgramView({ program, completedWorkouts, onCompleteExercise, on
   const totalWeeks = program?.totalWeeks || program?.mesocycleWeeks || 12;
   const phases = program?.phases || [];
 
+  // Calculate actual dates for the week based on program start date
+  const programStartDate = program?.startDate ? new Date(program.startDate) : new Date();
+  const startDayOfWeek = programStartDate.getDay() || 7; // 1=Mon, 7=Sun
+
+  // Get the first day of the viewing week
+  const getWeekStartDate = (weekNum) => {
+    const startDate = new Date(programStartDate);
+    startDate.setDate(startDate.getDate() + (weekNum - 1) * 7);
+    return startDate;
+  };
+
+  // Get the date for a specific day in the viewing week (day: 1-7, where 1=Mon)
+  const getDateForDay = (day) => {
+    const weekStart = getWeekStartDate(viewingWeek);
+    // Adjust for the actual start day - if program starts on Thu (day 4), day 1 of program is Thu
+    const daysFromWeekStart = day - 1;
+    const targetDate = new Date(weekStart);
+    targetDate.setDate(targetDate.getDate() + daysFromWeekStart);
+    return targetDate;
+  };
+
+  // Format date as "Jan 5"
+  const formatDate = (date) => {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  // Get week date range string
+  const getWeekDateRange = () => {
+    const weekStart = getWeekStartDate(viewingWeek);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    return `${formatDate(weekStart)} – ${formatDate(weekEnd)}`;
+  };
+
   // Generate schedule for the currently viewed week
   const weeklySchedule = useMemo(() => {
     if (viewingWeek === 1 || viewingWeek === program?.currentWeek) {
@@ -387,14 +421,17 @@ export function ProgramView({ program, completedWorkouts, onCompleteExercise, on
           <div className="flex items-center gap-3">
             <Calendar className="w-5 h-5 text-accent-primary" />
             <div className="text-center">
-              <span className="text-lg font-bold text-white">Week {viewingWeek}</span>
-              <span className="text-gray-400 text-sm"> of {totalWeeks}</span>
-              {viewingWeek === program?.currentWeek && (
-                <span className="ml-2 px-2 py-0.5 text-xs bg-accent-primary rounded-full text-white">Current</span>
-              )}
-              {isViewingFuture && (
-                <span className="ml-2 px-2 py-0.5 text-xs bg-accent-secondary/50 rounded-full text-accent-secondary">Preview</span>
-              )}
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-white">Week {viewingWeek}</span>
+                <span className="text-gray-400 text-sm"> of {totalWeeks}</span>
+                {viewingWeek === program?.currentWeek && (
+                  <span className="px-2 py-0.5 text-xs bg-accent-primary rounded-full text-white">Current</span>
+                )}
+                {isViewingFuture && (
+                  <span className="px-2 py-0.5 text-xs bg-accent-secondary/50 rounded-full text-accent-secondary">Preview</span>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">{getWeekDateRange()}</p>
             </div>
           </div>
 
@@ -480,20 +517,27 @@ export function ProgramView({ program, completedWorkouts, onCompleteExercise, on
             const isRest = schedule?.isRestDay;
             const isSelected = selectedDay === day;
             const isDeloadDay = schedule?.isDeload;
+            const dayDate = getDateForDay(day);
+            const isToday = dayDate.toDateString() === new Date().toDateString();
             return (
               <button
                 key={day}
                 onClick={() => setSelectedDay(day)}
-                className={`flex flex-col items-center px-4 py-2 rounded-xl min-w-[60px] transition-all ${
+                className={`flex flex-col items-center px-3 py-2 rounded-xl min-w-[64px] transition-all ${
                   isSelected
                     ? 'bg-accent-primary text-white'
-                    : isDeloadDay
-                      ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
-                      : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
-                } ${isRest && !isSelected ? 'opacity-50' : ''}`}
+                    : isToday
+                      ? 'bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary/50'
+                      : isDeloadDay
+                        ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
+                        : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
+                } ${isRest && !isSelected && !isToday ? 'opacity-50' : ''}`}
               >
                 <span className="text-xs font-medium">{DAY_NAMES[day]}</span>
-                <span className="text-lg font-bold mt-1">
+                <span className={`text-[10px] ${isSelected ? 'text-white/80' : isToday ? 'text-accent-primary/80' : 'text-gray-500'}`}>
+                  {dayDate.getDate()}
+                </span>
+                <span className="text-lg font-bold mt-0.5">
                   {isRest ? '🧘' : isDeloadDay ? '🔄' : '💪'}
                 </span>
               </button>

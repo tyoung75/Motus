@@ -55,9 +55,22 @@ export function Dashboard({
     );
   }, 0);
 
+  // Check if program has started yet
+  const programStartDate = program?.startDate ? new Date(program.startDate) : null;
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+  const isProgramStarted = !programStartDate || programStartDate <= todayDate;
+
+  // Calculate days until program starts
+  const daysUntilStart = programStartDate
+    ? Math.ceil((programStartDate - todayDate) / (1000 * 60 * 60 * 24))
+    : 0;
+
   // Get today's scheduled workouts that haven't been completed
   const today = new Date().getDay() || 7;
-  const todaysSchedule = program?.weeklySchedule?.find((d) => d.day === today);
+  const todaysSchedule = isProgramStarted
+    ? program?.weeklySchedule?.find((d) => d.day === today)
+    : null;
   const scheduledSessions = todaysSchedule?.sessions || [];
   const completedSessionTimes = todaysWorkouts.map((w) => w.sessionTime);
   const remainingWorkouts = scheduledSessions.filter(
@@ -193,7 +206,73 @@ export function Dashboard({
             </div>
 
             <div className="p-5">
-              {todaysSchedule && !todaysSchedule.isRestDay ? (
+              {!isProgramStarted && programStartDate ? (
+                /* Pre-program countdown view */
+                <div className="space-y-4">
+                  <div className="text-center py-4">
+                    <div className="w-20 h-20 bg-gradient-to-br from-accent-primary/20 to-accent-secondary/20 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-accent-primary/30">
+                      <span className="text-4xl">🚀</span>
+                    </div>
+                    <p className="font-display text-3xl font-bold text-accent-primary mb-1">
+                      {daysUntilStart} {daysUntilStart === 1 ? 'Day' : 'Days'}
+                    </p>
+                    <p className="text-sm text-text-muted mb-2">until your program begins</p>
+                    <p className="text-white font-semibold">
+                      Starting {programStartDate.toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-accent-primary/10 to-accent-secondary/10 rounded-xl p-4 border border-accent-primary/20">
+                    <h4 className="font-semibold text-white mb-3 flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-accent-primary" />
+                      Prepare for Success
+                    </h4>
+                    <ul className="space-y-3 text-sm">
+                      <li className="flex items-start gap-3">
+                        <span className="text-lg">🛒</span>
+                        <div>
+                          <p className="text-white font-medium">Stock up on nutrition</p>
+                          <p className="text-text-muted">Prepare your meals and snacks for week 1</p>
+                        </div>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="text-lg">😴</span>
+                        <div>
+                          <p className="text-white font-medium">Get quality sleep</p>
+                          <p className="text-text-muted">Aim for 8+ hours to start fresh</p>
+                        </div>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="text-lg">📱</span>
+                        <div>
+                          <p className="text-white font-medium">Review your program</p>
+                          <p className="text-text-muted">Familiarize yourself with week 1 workouts</p>
+                        </div>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="text-lg">🎯</span>
+                        <div>
+                          <p className="text-white font-medium">Set your intentions</p>
+                          <p className="text-text-muted">Visualize your goals and commit fully</p>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={onViewProgram}
+                  >
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Preview Your Program
+                  </Button>
+                </div>
+              ) : todaysSchedule && !todaysSchedule.isRestDay ? (
                 <div className="space-y-3">
                   {todaysSchedule.sessions?.map((session, idx) => {
                     const isCompleted = todaysWorkouts.some(

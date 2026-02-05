@@ -1895,6 +1895,8 @@ export function generateProgram(formData) {
     baselineTimeSeconds,
     // Strength baselines
     strengthGoals = [],
+    // Program start date
+    programStartDate,
   } = formData;
 
   // TRIATHLON SPECIAL HANDLING:
@@ -2254,6 +2256,7 @@ export function generateProgram(formData) {
     },
     paces: programType === 'endurance' ? paces : null,
     generatedAt: new Date().toISOString(),
+    startDate: programStartDate || new Date().toISOString().split('T')[0], // Default to today if not set
     weeklySchedule,
     progressionRules: {
       strengthIncrease: athleteLevel.level === 'elite'
