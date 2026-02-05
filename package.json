@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
-    "@supabase/supabase-js": "^2.39.0",
+    "@supabase/supabase-js": "2.94.1",
     "@vercel/analytics": "^1.6.1",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.294.0",
