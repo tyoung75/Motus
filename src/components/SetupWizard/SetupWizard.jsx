@@ -1002,6 +1002,13 @@ function StepPrimaryGoal({ formData, updateFormData }) {
             onClick={() => {
               updateFormData('programType', program.id);
               updateFormData('programSubtype', '');
+              // Clear hybrid settings for strength and aesthetic (not supported)
+              if (program.id === 'strength' || program.id === 'aesthetic') {
+                updateFormData('enableHybrid', false);
+                updateFormData('secondaryProgramType', '');
+                updateFormData('secondarySubtype', '');
+                updateFormData('allowDoubleDays', false);
+              }
             }}
             className={`p-4 rounded-xl border text-left transition-all ${
               formData.programType === program.id
@@ -1082,8 +1089,10 @@ function StepPrimaryGoal({ formData, updateFormData }) {
         </div>
       )}
 
-      {/* Hybrid Training Option (not for triathlon - it's auto-included) */}
-      {formData.programSubtype && formData.programSubtype !== 'triathlon' && (
+      {/* Hybrid Training Option - ONLY for endurance programs (not triathlon, strength, or aesthetic) */}
+      {formData.programSubtype &&
+       formData.programType === 'endurance' &&
+       formData.programSubtype !== 'triathlon' && (
         <div className="mt-6 p-4 bg-dark-800 rounded-xl border border-dark-600">
           <div className="flex items-center justify-between mb-4">
             <div>
