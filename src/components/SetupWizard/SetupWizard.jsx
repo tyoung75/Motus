@@ -96,6 +96,7 @@ export function SetupWizard({ onComplete }) {
   const { user, signInWithGoogle, isAuthenticated, isConfigured } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [strengthGoalError, setStrengthGoalError] = useState(null); // Error for unrealistic strength goals
   const [formData, setFormData] = useState({
     // Personal
     name: '',
@@ -147,6 +148,7 @@ export function SetupWizard({ onComplete }) {
       current: '',
       target: '',
     })),
+    strengthGoalDate: '', // Target date for strength goals
 
     // Aesthetic goals
     currentBodyFat: '',
@@ -207,12 +209,11 @@ export function SetupWizard({ onComplete }) {
   };
 
   const addVacation = () => {
-    const today = getTodayString();
     const newVacation = {
       id: Date.now(),
       name: '',
-      startDate: today, // Default to today so calendar opens at current date
-      endDate: today,   // Default end to same as start
+      startDate: '', // Empty - user must select
+      endDate: '',   // Empty - calendar opens at start date position via min attr
     };
     updateFormData('vacations', [...formData.vacations, newVacation]);
   };
@@ -319,7 +320,7 @@ export function SetupWizard({ onComplete }) {
 
   const validateGoalDetails = () => {
     if (formData.programType === 'endurance') {
-      if (formData.programSubtype === 'marathon') {
+      if (formData.programSubtype === 'running') {
         return formData.raceDistance && formData.raceDate;
       }
       if (formData.programSubtype === 'triathlon') {
@@ -329,7 +330,55 @@ export function SetupWizard({ onComplete }) {
     }
     if (formData.programType === 'strength') {
       const hasAtLeastOneGoal = formData.strengthGoals.some(g => g.current && g.target);
-      return hasAtLeastOneGoal;
+      if (!hasAtLeastOneGoal) {
+        setStrengthGoalError(null);
+        return false;
+      }
+
+      // Check if goals are realistic (max 10lbs/week increase)
+      // Need a goal date to calculate
+      if (!formData.strengthGoalDate) {
+        setStrengthGoalError(null);
+        return false;
+      }
+
+      const today = new Date();
+      const goalDate = new Date(formData.strengthGoalDate);
+      const weeksUntilGoal = Math.max(1, Math.ceil((goalDate - today) / (1000 * 60 * 60 * 24 * 7)));
+
+      // Check each lift for realistic progression
+      const unrealisticLifts = [];
+      formData.strengthGoals.forEach(goal => {
+        if (goal.current && goal.target) {
+          const current = parseFloat(goal.current);
+          const target = parseFloat(goal.target);
+          const totalIncrease = target - current;
+          const weeklyIncrease = totalIncrease / weeksUntilGoal;
+
+          // >10lbs/week is unrealistic for any lift
+          if (weeklyIncrease > 10) {
+            unrealisticLifts.push({
+              lift: goal.label,
+              weeklyIncrease: weeklyIncrease.toFixed(1),
+              totalIncrease,
+              weeks: weeksUntilGoal,
+            });
+          }
+        }
+      });
+
+      if (unrealisticLifts.length > 0) {
+        const errorMsg = unrealisticLifts.map(l =>
+          `${l.lift}: ${l.totalIncrease}lbs in ${l.weeks} weeks = ${l.weeklyIncrease}lbs/week`
+        ).join('\n');
+        setStrengthGoalError(
+          `Your strength goals are not realistic. A maximum of ~10lbs/week 1RM increase is possible with optimal training.\n\n${errorMsg}\n\nPlease extend your goal date or reduce your targets.`
+        );
+        return false;
+      }
+
+      setStrengthGoalError(null);
+      return true;
     }
     if (formData.programType === 'aesthetic') {
       return formData.targetBodyFat;
@@ -408,6 +457,7 @@ export function SetupWizard({ onComplete }) {
             formData={formData}
             updateFormData={updateFormData}
             updateStrengthGoal={updateStrengthGoal}
+            strengthGoalError={strengthGoalError}
           />
         )}
         {currentStep === 5 && (
@@ -950,8 +1000,8 @@ function StepPrimaryGoal({ formData, updateFormData }) {
   );
 }
 
-// Step 4: Goal Details
-function StepGoalDetails({ formData, updateFormData, updateStrengthGoal }) {
+/// Step 4: Goal Details
+function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengthGoalError }) {
   const renderGoalInputs = () => {
     // Endurance goals
     if (formData.programType === 'endurance') {
@@ -1273,6 +1323,23 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal }) {
           <h3 className="text-lg font-semibold text-white">🏋️ Strength Goals</h3>
           <p className="text-sm text-gray-400">Enter your current and target weights for main lifts (in lbs)</p>
 
+          {/* Goal Date - required for calculating realistic progression */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Goal Date
+            </label>
+            <input
+              type="date"
+              value={formData.strengthGoalDate}
+              min={getTodayString()}
+              onChange={(e) => updateFormData('strengthGoalDate', e.target.value)}
+              className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white"
+            />
+            <p className="text-xs text-text-muted mt-1">
+              When do you want to hit these numbers? (Minimum 8-12 weeks recommended)
+            </p>
+          </div>
+
           {formData.strengthGoals.map((exercise) => (
             <div key={exercise.id} className="p-3 bg-dark-700 rounded-lg">
               <span className="text-white font-medium block mb-2">{exercise.label}</span>
@@ -1439,6 +1506,22 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal }) {
 
       {renderGoalInputs()}
 
+      {/* Strength Goal Error */}
+      {strengthGoalError && formData.programType === 'strength' && (
+        <div className="mt-4 p-4 bg-accent-danger/10 border border-accent-danger/30 rounded-xl">
+          <h4 className="text-accent-danger font-semibold mb-2 flex items-center gap-2">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            Unrealistic Goals Detected
+          </h4>
+          <p className="text-sm text-text-secondary whitespace-pre-line">{strengthGoalError}</p>
+          <p className="text-xs text-text-muted mt-3">
+            MOTUS cannot produce a plan with unrealistic goals. Please adjust your targets or extend your timeline.
+          </p>
+        </div>
+      )}
+
       {/* Nutrition Goal */}
       <div className="pt-6 border-t border-dark-600">
         <h3 className="text-lg font-semibold text-white mb-4">🍎 Nutrition Goal</h3>
@@ -1506,29 +1589,23 @@ function StepVacations({ formData, addVacation, updateVacation, removeVacation }
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-gray-400">Start Date</label>
+                  <label className="text-xs text-text-muted">Start Date</label>
                   <input
                     type="date"
                     value={vacation.startDate}
                     min={getTodayString()}
-                    onChange={(e) => {
-                      updateVacation(vacation.id, 'startDate', e.target.value);
-                      // If end date is before new start date, update it
-                      if (vacation.endDate && vacation.endDate < e.target.value) {
-                        updateVacation(vacation.id, 'endDate', e.target.value);
-                      }
-                    }}
-                    className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm"
+                    onChange={(e) => updateVacation(vacation.id, 'startDate', e.target.value)}
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white text-sm"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400">End Date</label>
+                  <label className="text-xs text-text-muted">End Date</label>
                   <input
                     type="date"
                     value={vacation.endDate}
                     min={vacation.startDate || getTodayString()}
                     onChange={(e) => updateVacation(vacation.id, 'endDate', e.target.value)}
-                    className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm"
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white text-sm"
                   />
                 </div>
               </div>

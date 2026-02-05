@@ -60,41 +60,52 @@ function calculateProgramLength(formData) {
 }
 
 // ============ PERIODIZATION PHASES ============
+// Proper periodization: 4 weeks training + 1 week deload, repeating
+// Phase cycle: Base (4wk) → Deload → Build (4wk) → Deload → Peak (2-4wk) → Taper (1-3wk)
 
 function generatePeriodizationPhases(totalWeeks, programType, programSubtype) {
   const phases = [];
 
-  if (programType === 'endurance' && (programSubtype === 'marathon' || programSubtype === 'triathlon')) {
-    const baseWeeks = Math.floor(totalWeeks * 0.25);
-    const build1Weeks = Math.floor(totalWeeks * 0.25);
-    const build2Weeks = Math.floor(totalWeeks * 0.25);
-    const peakWeeks = Math.floor(totalWeeks * 0.15);
-    const taperWeeks = totalWeeks - baseWeeks - build1Weeks - build2Weeks - peakWeeks;
+  // For endurance race training: need taper at the end
+  const isRaceTraining = programType === 'endurance' &&
+    ['running', 'marathon', 'triathlon', 'cycling'].includes(programSubtype);
 
-    for (let i = 0; i < baseWeeks; i++) phases.push('Base');
-    for (let i = 0; i < build1Weeks; i++) phases.push('Build 1');
-    for (let i = 0; i < build2Weeks; i++) phases.push('Build 2');
-    for (let i = 0; i < peakWeeks; i++) phases.push('Peak');
-    for (let i = 0; i < taperWeeks; i++) phases.push('Taper');
-  } else {
-    const cycleLength = 4;
-    let currentWeek = 0;
+  // Reserve taper weeks for race training (2-3 weeks)
+  const taperWeeks = isRaceTraining ? Math.min(3, Math.floor(totalWeeks * 0.1) + 1) : 0;
+  const trainingWeeks = totalWeeks - taperWeeks;
 
-    while (currentWeek < totalWeeks) {
-      const cycleNumber = Math.floor(currentWeek / cycleLength);
-      const weekInCycle = currentWeek % cycleLength;
+  // Each mesocycle: 4 weeks training + 1 week deload = 5 weeks
+  const mesocycleLength = 5;
+  let currentWeek = 0;
 
-      if (weekInCycle === 3) {
-        phases.push('Deload');
-      } else if (cycleNumber === 0) {
+  while (currentWeek < trainingWeeks) {
+    const mesocycleNumber = Math.floor(currentWeek / mesocycleLength);
+    const weekInMesocycle = currentWeek % mesocycleLength;
+
+    // Week 5 of each mesocycle is ALWAYS deload
+    if (weekInMesocycle === 4) {
+      phases.push('Deload');
+    } else {
+      // Determine which phase based on mesocycle number
+      const totalMesocycles = Math.ceil(trainingWeeks / mesocycleLength);
+
+      if (mesocycleNumber === 0) {
+        // First mesocycle: Base
         phases.push('Base');
-      } else if (currentWeek >= totalWeeks - 2) {
+      } else if (mesocycleNumber >= totalMesocycles - 1 && currentWeek >= trainingWeeks - 4) {
+        // Last full mesocycle before taper: Peak
         phases.push('Peak');
       } else {
+        // Middle mesocycles: Build
         phases.push('Build');
       }
-      currentWeek++;
     }
+    currentWeek++;
+  }
+
+  // Add taper weeks for race training
+  for (let i = 0; i < taperWeeks; i++) {
+    phases.push('Taper');
   }
 
   return phases;
@@ -202,41 +213,100 @@ function formatPace(decimalMinutes) {
 }
 
 // ============ MILEAGE PROGRESSION CALCULATOR ============
-// Max 5% increase per week, starting from user's current mileage
+// Research-based approach:
+// 1. Start at user's current mileage (or reasonable default based on goal)
+// 2. Progress max 10% per week (safer than 5% for building)
+// 3. Peak mileage based on goal race time and distance
+// 4. Never start higher than 80% of target peak
 
-function calculateWeeklyMileage(totalWeeks, peakMileage, currentWeek, phase, startingMileage = null) {
-  const maxWeeklyIncrease = 0.05; // 5% max per week
+function calculateTargetPeakMileage(raceDistance, goalPacePerMile, athleteLevel) {
+  // Research-based peak mileage for different race goals
+  // Based on Daniels' Running Formula and Pfitzinger methodology
+  const { level } = athleteLevel;
 
-  // Use provided starting mileage or calculate from peak
-  let baseMileage = startingMileage;
-  if (!baseMileage || baseMileage <= 0) {
-    // Fallback: work backward from peak using max 5% increases
-    const weeksToBuildup = Math.floor(totalWeeks * 0.85);
-    baseMileage = peakMileage / Math.pow(1 + maxWeeklyIncrease, weeksToBuildup);
+  // Base peak mileage by race distance
+  const basePeaks = {
+    '5k': { min: 25, max: 40 },
+    '10k': { min: 30, max: 50 },
+    'half': { min: 35, max: 55 },
+    'full': { min: 40, max: 70 },
+    'ultra': { min: 50, max: 80 },
+  };
+
+  const peaks = basePeaks[raceDistance] || basePeaks['full'];
+
+  // Adjust based on goal pace (faster goals need more mileage)
+  // Sub-3hr marathon needs ~60-70 mi/wk peak
+  // Sub-4hr marathon needs ~40-50 mi/wk peak
+  let targetPeak = (peaks.min + peaks.max) / 2;
+
+  if (goalPacePerMile) {
+    const pace = parseFloat(goalPacePerMile) || 9;
+    if (pace < 7) targetPeak = peaks.max;        // Elite pace
+    else if (pace < 8) targetPeak = peaks.max * 0.9;
+    else if (pace < 9) targetPeak = (peaks.min + peaks.max) / 2;
+    else targetPeak = peaks.min * 1.1;
   }
 
-  // Ensure starting mileage is realistic (at least 10 miles/week for runners)
-  baseMileage = Math.max(baseMileage, 10);
+  // Level adjustment
+  if (level === 'elite') targetPeak *= 1.1;
+  else if (level === 'advanced') targetPeak *= 1.0;
+  else if (level === 'intermediate') targetPeak *= 0.9;
+  else targetPeak *= 0.8;
 
-  // Apply phase-specific adjustments
+  return Math.round(targetPeak);
+}
+
+function calculateWeeklyMileage(totalWeeks, peakMileage, currentWeek, phase, startingMileage = null, raceDistance = null, athleteLevel = null) {
+  const maxWeeklyIncrease = 0.10; // 10% max per week (industry standard)
+
+  // Calculate actual starting point
+  let baseMileage = startingMileage;
+
+  if (!baseMileage || baseMileage <= 0) {
+    // No starting mileage provided - calculate a reasonable starting point
+    // Start at 50-60% of peak to allow proper buildup
+    baseMileage = Math.round(peakMileage * 0.5);
+  }
+
+  // Ensure starting mileage isn't too high relative to peak
+  // Can't start at more than 80% of peak (need room to progress)
+  baseMileage = Math.min(baseMileage, Math.round(peakMileage * 0.8));
+
+  // Ensure minimum starting mileage based on race distance
+  const minimums = { '5k': 10, '10k': 15, 'half': 20, 'full': 25, 'ultra': 30 };
+  const minMileage = minimums[raceDistance] || 15;
+  baseMileage = Math.max(baseMileage, minMileage);
+
+  // Calculate weeks needed to reach peak from base at 10%/week
+  const weeksToReachPeak = Math.ceil(Math.log(peakMileage / baseMileage) / Math.log(1 + maxWeeklyIncrease));
+
+  // Phase-specific adjustments
   if (phase === 'Taper') {
-    // Taper is based on where you ARE, not where you started
-    const currentMileageBeforeTaper = Math.min(
-      baseMileage * Math.pow(1 + maxWeeklyIncrease, currentWeek - 3),
-      peakMileage
-    );
-    return Math.round(currentMileageBeforeTaper * 0.6); // 40% reduction for taper
+    // During taper, progressively reduce: Week 1 = 75%, Week 2 = 50%, Week 3 = 40%
+    const taperReduction = currentWeek === totalWeeks ? 0.40 :
+                          currentWeek === totalWeeks - 1 ? 0.50 : 0.75;
+    return Math.round(peakMileage * taperReduction);
   }
 
   if (phase === 'Deload') {
-    // Deload week: reduce by 30% from current progression
-    const normalMileage = baseMileage * Math.pow(1 + maxWeeklyIncrease, currentWeek - 1);
-    return Math.round(Math.min(normalMileage, peakMileage) * 0.7);
+    // Deload week: 60-70% of what would be normal progression
+    const normalMileage = Math.min(
+      baseMileage * Math.pow(1 + maxWeeklyIncrease, currentWeek - 1),
+      peakMileage
+    );
+    return Math.round(normalMileage * 0.65);
   }
 
-  // Progressive increase (max 5% per week from actual starting point)
-  const weekMileage = baseMileage * Math.pow(1 + maxWeeklyIncrease, currentWeek - 1);
-  return Math.min(Math.round(weekMileage), peakMileage);
+  // Progressive increase
+  // Calculate where we should be in the progression
+  const progressionWeek = currentWeek;
+  let weekMileage = baseMileage * Math.pow(1 + maxWeeklyIncrease, progressionWeek - 1);
+
+  // Cap at peak mileage
+  weekMileage = Math.min(weekMileage, peakMileage);
+
+  return Math.round(weekMileage);
 }
 
 function calculateLongRunCap(longestRecentRun, weekNumber, athleteLevel) {
@@ -828,20 +898,28 @@ function generateAestheticExercises(focus, phase, isDeload, athleteLevel, weekNu
   return exercises;
 }
 
-function generateEnduranceSession(type, phase, isDeload, startingMileage, athleteLevel, paces, weekNumber, totalWeeks, maxLongRun = null) {
+function generateEnduranceSession(type, phase, isDeload, startingMileage, athleteLevel, paces, weekNumber, totalWeeks, maxLongRun = null, raceDistance = null) {
   const { multiplier, level } = athleteLevel;
 
-  // Calculate this week's mileage based on progressive 5% max increase from starting point
-  // Level-based peak mileage defaults
-  const levelBasedPeak = level === 'elite' ? 60 : level === 'advanced' ? 50 : 40;
+  // Calculate target peak mileage based on goal
+  // Extract goal pace from paces object
+  const goalPaceStr = paces?.goalPace || '';
+  const goalPaceMatch = goalPaceStr.match(/(\d+):(\d+)/);
+  const goalPaceMinutes = goalPaceMatch
+    ? parseFloat(goalPaceMatch[1]) + parseFloat(goalPaceMatch[2]) / 60
+    : null;
 
-  // IMPORTANT: If user is already running higher mileage than level suggests,
-  // respect their current fitness! Don't drop someone from 55mi/week to 40mi.
-  // Allow 10-15% growth beyond current mileage as the new peak.
-  const userBasedPeak = startingMileage ? Math.round(startingMileage * 1.15) : levelBasedPeak;
-  const peakWeeklyMileage = Math.max(levelBasedPeak, userBasedPeak);
+  // Calculate research-based peak mileage
+  const targetPeakMileage = calculateTargetPeakMileage(raceDistance, goalPaceMinutes, athleteLevel);
 
-  const currentWeekMileage = calculateWeeklyMileage(totalWeeks, peakWeeklyMileage, weekNumber, phase, startingMileage);
+  // If user is already running higher than target peak, adjust peak up
+  const userBasedPeak = startingMileage ? Math.round(startingMileage * 1.15) : targetPeakMileage;
+  const peakWeeklyMileage = Math.max(targetPeakMileage, userBasedPeak);
+
+  const currentWeekMileage = calculateWeeklyMileage(
+    totalWeeks, peakWeeklyMileage, weekNumber, phase,
+    startingMileage, raceDistance, athleteLevel
+  );
 
   // Calculate long run cap based on what user has actually done
   const longRunCap = calculateLongRunCap(maxLongRun, weekNumber, athleteLevel);
@@ -1079,7 +1157,8 @@ function createSmartHybridSchedule(
   totalWeeks,
   startingMileage,
   maxLongRun,
-  strengthGoals
+  strengthGoals,
+  raceDistance
 ) {
   // For endurance primary + strength secondary:
   // - Place strength on easy run days
@@ -1172,7 +1251,7 @@ function createSmartHybridSchedule(
       // This is a run day
       const enduranceSession = generateEnduranceSession(
         runInfo, currentPhase, isDeload, startingMileage,
-        athleteLevel, paces, currentWeek, totalWeeks, maxLongRun
+        athleteLevel, paces, currentWeek, totalWeeks, maxLongRun, raceDistance
       );
 
       sessions.push({
@@ -1318,7 +1397,8 @@ export function generateProgram(formData) {
       totalWeeks,
       startingMileage,
       maxLongRun,
-      strengthGoals
+      strengthGoals,
+      raceDistance
     );
   } else {
     // Standard scheduling for non-hybrid or other combinations
@@ -1349,7 +1429,7 @@ export function generateProgram(formData) {
         const enduranceType = enduranceTemplates[desiredTrainingDays]?.[workoutIndex] || 'Easy Run';
         const enduranceSession = generateEnduranceSession(
           enduranceType, currentPhase, isDeload, startingMileage,
-          athleteLevel, paces, currentWeek, totalWeeks, maxLongRun
+          athleteLevel, paces, currentWeek, totalWeeks, maxLongRun, raceDistance
         );
 
         sessions.push({
