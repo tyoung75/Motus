@@ -11,7 +11,7 @@ const TABS = [
 
 export function TabBar({ activeTab, onChange }) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-dark-900/95 backdrop-blur-md border-t border-dark-700 px-2 py-2 z-50">
+    <nav className="fixed bottom-0 left-0 right-0 bg-dark-900/95 backdrop-blur-md border-t border-dark-700 px-2 pt-2 z-50" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
       <div className="flex items-center justify-around max-w-lg mx-auto">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;

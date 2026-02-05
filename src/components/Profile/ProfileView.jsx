@@ -2,6 +2,21 @@ import React from 'react';
 import { Scale, Target, Calendar, Flame, RefreshCw } from 'lucide-react';
 import { Card, CardBody, Button } from '../shared';
 
+// Helper to get experience level from years of training
+const getExperienceLevel = (years) => {
+  if (!years || years < 1) return 'Beginner';
+  if (years < 2) return 'Novice';
+  if (years < 4) return 'Intermediate';
+  if (years < 7) return 'Advanced';
+  return 'Expert';
+};
+
+// Helper to capitalize first letter
+const capitalize = (str) => {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
 export function ProfileView({ profile, program, onResetSetup }) {
   const { macros } = profile;
   const goalLabels = { strength: '💪 Strength', bodybuilding: '🏋️ Bodybuilding', endurance: '🏃 Endurance', fatloss: '⚖️ Fat Loss', marathon: '🏃 Marathon', general: '💪 General' };
@@ -15,7 +30,7 @@ export function ProfileView({ profile, program, onResetSetup }) {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">{profile.name || 'Athlete'}</h1>
-            <p className="text-gray-400">{profile.experienceLevel?.charAt(0).toUpperCase() + profile.experienceLevel?.slice(1)} Level</p>
+            <p className="text-gray-400">{getExperienceLevel(profile.yearsTraining)} Level</p>
           </div>
         </div>
       </header>
@@ -26,7 +41,7 @@ export function ProfileView({ profile, program, onResetSetup }) {
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2"><Scale className="w-5 h-5 text-accent-secondary" />Body Stats</h2>
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center p-3 bg-dark-700 rounded-lg"><p className="text-2xl font-bold text-white">{profile.weight}</p><p className="text-xs text-gray-400">{profile.weightUnit || 'lbs'}</p></div>
-              <div className="text-center p-3 bg-dark-700 rounded-lg"><p className="text-2xl font-bold text-white">{profile.height}</p><p className="text-xs text-gray-400">{profile.heightUnit || 'in'}</p></div>
+              <div className="text-center p-3 bg-dark-700 rounded-lg"><p className="text-2xl font-bold text-white">{profile.heightUnit === 'metric' ? profile.heightCm : `${profile.heightFeet}'${profile.heightInches}"`}</p><p className="text-xs text-gray-400">{profile.heightUnit === 'metric' ? 'cm' : 'imperial'}</p></div>
               <div className="text-center p-3 bg-dark-700 rounded-lg"><p className="text-2xl font-bold text-white">{profile.age}</p><p className="text-xs text-gray-400">years</p></div>
             </div>
           </CardBody>
@@ -49,7 +64,7 @@ export function ProfileView({ profile, program, onResetSetup }) {
           <CardBody>
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2"><Target className="w-5 h-5 text-accent-primary" />Training Goals</h2>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-dark-700 rounded-lg"><span className="text-gray-400">Primary</span><span className="text-white font-medium">{goalLabels[profile.programSubtype] || profile.programType}</span></div>
+              <div className="flex items-center justify-between p-3 bg-dark-700 rounded-lg"><span className="text-gray-400">Primary</span><span className="text-white font-medium">{goalLabels[profile.programSubtype] || capitalize(profile.programType)}</span></div>
               {profile.enableHybrid && profile.secondaryProgramType && (
                 <div className="flex items-center justify-between p-3 bg-accent-primary/10 border border-accent-primary/30 rounded-lg"><span className="text-accent-primary">Hybrid</span><span className="text-white">🔥 {profile.allowDoubleDays ? 'AM/PM Splits' : 'Alternating'}</span></div>
               )}

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Camera, X, FlashlightOff, Flashlight, RotateCcw } from 'lucide-react';
+import { Camera, X, FlashlightOff, Flashlight, RotateCcw, Keyboard } from 'lucide-react';
 
 export function BarcodeScanner({ isOpen, onScan, onClose }) {
   const videoRef = useRef(null);
@@ -11,6 +11,9 @@ export function BarcodeScanner({ isOpen, onScan, onClose }) {
   const [flashOn, setFlashOn] = useState(false);
   const [facingMode, setFacingMode] = useState('environment'); // 'environment' = back camera
   const scanIntervalRef = useRef(null);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualBarcode, setManualBarcode] = useState('');
+  const [barcodeNotSupported, setBarcodeNotSupported] = useState(false);
 
   // Start camera
   const startCamera = useCallback(async () => {
@@ -111,9 +114,20 @@ export function BarcodeScanner({ isOpen, onScan, onClose }) {
       }, 200);
     } else {
       // Fallback: Manual barcode entry
-      setError('Barcode scanning not supported on this device. Please enter the barcode manually.');
+      setBarcodeNotSupported(true);
+      setShowManualEntry(true);
     }
   }, [onScan, stopCamera]);
+
+  // Handle manual barcode submission
+  const handleManualSubmit = useCallback(() => {
+    if (manualBarcode.trim()) {
+      stopCamera();
+      onScan(manualBarcode.trim());
+      setManualBarcode('');
+      setShowManualEntry(false);
+    }
+  }, [manualBarcode, onScan, stopCamera]);
 
   // Effect to handle open/close
   useEffect(() => {
@@ -195,26 +209,80 @@ export function BarcodeScanner({ isOpen, onScan, onClose }) {
         </div>
       </div>
 
-      {/* Instructions */}
+      {/* Instructions / Manual Entry */}
       <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
-        {error ? (
+        {showManualEntry ? (
+          <div className="text-center">
+            {barcodeNotSupported && (
+              <p className="text-amber-400 text-sm mb-3">
+                Camera barcode scanning not supported on this browser. Enter the barcode number manually.
+              </p>
+            )}
+            <div className="flex gap-2 mb-3">
+              <input
+                type="text"
+                value={manualBarcode}
+                onChange={(e) => setManualBarcode(e.target.value)}
+                placeholder="Enter barcode number"
+                className="flex-1 px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500 text-center text-lg tracking-wider"
+                autoFocus
+                inputMode="numeric"
+                pattern="[0-9]*"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowManualEntry(false);
+                  setManualBarcode('');
+                }}
+                className="flex-1 px-4 py-3 bg-dark-700 text-white rounded-lg font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleManualSubmit}
+                disabled={!manualBarcode.trim()}
+                className="flex-1 px-4 py-3 bg-accent-primary text-white rounded-lg font-medium disabled:opacity-50"
+              >
+                Search
+              </button>
+            </div>
+          </div>
+        ) : error ? (
           <div className="text-center">
             <p className="text-red-400 mb-4">{error}</p>
-            <button
-              onClick={startCamera}
-              className="px-6 py-3 bg-accent-primary text-white rounded-lg font-medium"
-            >
-              Try Again
-            </button>
+            <div className="flex gap-2 justify-center">
+              <button
+                onClick={startCamera}
+                className="px-6 py-3 bg-accent-primary text-white rounded-lg font-medium"
+              >
+                Try Again
+              </button>
+              <button
+                onClick={() => setShowManualEntry(true)}
+                className="px-6 py-3 bg-dark-700 text-white rounded-lg font-medium flex items-center gap-2"
+              >
+                <Keyboard className="w-4 h-4" />
+                Enter Manually
+              </button>
+            </div>
           </div>
         ) : (
           <div className="text-center">
             <p className="text-white text-lg mb-2">
               {isScanning ? 'Position barcode within frame' : 'Starting camera...'}
             </p>
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-400 text-sm mb-3">
               Works with UPC, EAN, and most product barcodes
             </p>
+            <button
+              onClick={() => setShowManualEntry(true)}
+              className="text-accent-primary text-sm flex items-center gap-1 mx-auto"
+            >
+              <Keyboard className="w-4 h-4" />
+              Enter barcode manually
+            </button>
           </div>
         )}
       </div>

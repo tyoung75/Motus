@@ -92,11 +92,62 @@ const STRENGTH_EXERCISES = [
   { id: 'row', label: 'Barbell Row' },
 ];
 
+// Generate test profile and program for dev testing
+const generateTestData = () => {
+  const testProfile = {
+    name: 'Test User',
+    age: 30,
+    sex: 'male',
+    weight: 180,
+    weightUnit: 'lbs',
+    heightFeet: 5,
+    heightInches: 10,
+    heightUnit: 'imperial',
+    programType: 'endurance',
+    programSubtype: 'running',
+    desiredTrainingDays: 5,
+    yearsTraining: 3,
+    trainingHistory: 'consistent',
+    raceDistance: 'half',
+    raceDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    nutritionGoal: 'maintain',
+    weightKg: 81.6,
+    heightCm: 177.8,
+    bmr: 1882,
+    tdee: 3200,
+    macros: { calories: 3200, protein: 180, carbs: 400, fat: 100 },
+  };
+
+  const testProgram = {
+    name: 'Test Running Program',
+    type: 'endurance',
+    subtype: 'running',
+    primaryGoal: 'endurance',
+    currentWeek: 1,
+    currentPhase: 'Base',
+    mesocycleWeeks: 14,
+    daysPerWeek: 5,
+    programStartDate: new Date().toISOString().split('T')[0],
+    weeklySchedule: [
+      { day: 1, dayName: 'Monday', name: 'Easy Run', isRestDay: false, isDeload: false, sessions: [{ time: 'AM', type: 'endurance', focus: 'Easy Run', duration: 40, exercises: [{ name: 'Easy Run', sets: 1, reps: '40 min', pace: '9:30-10:00/mi', rpe: 5 }] }] },
+      { day: 2, dayName: 'Tuesday', name: 'Intervals', isRestDay: false, isDeload: false, sessions: [{ time: 'AM', type: 'endurance', focus: 'Intervals', duration: 45, exercises: [{ name: 'Speed Work', sets: 6, reps: '400m', pace: '7:30/mi', rpe: 8 }] }] },
+      { day: 3, dayName: 'Wednesday', name: 'Active Recovery', isRestDay: true, isDeload: false, sessions: [] },
+      { day: 4, dayName: 'Thursday', name: 'Tempo Run', isRestDay: false, isDeload: false, sessions: [{ time: 'AM', type: 'endurance', focus: 'Tempo', duration: 50, exercises: [{ name: 'Tempo Run', sets: 1, reps: '4 mi', pace: '8:15/mi', rpe: 7 }] }] },
+      { day: 5, dayName: 'Friday', name: 'Easy Run', isRestDay: false, isDeload: false, sessions: [{ time: 'AM', type: 'endurance', focus: 'Easy Run', duration: 35, exercises: [{ name: 'Recovery Run', sets: 1, reps: '30 min', pace: '10:00/mi', rpe: 4 }] }] },
+      { day: 6, dayName: 'Saturday', name: 'Long Run', isRestDay: false, isDeload: false, sessions: [{ time: 'AM', type: 'endurance', focus: 'Long Run', duration: 90, exercises: [{ name: 'Long Run', sets: 1, reps: '10 mi', pace: '9:45/mi', rpe: 6 }] }] },
+      { day: 7, dayName: 'Sunday', name: 'Active Recovery', isRestDay: true, isDeload: false, sessions: [] },
+    ],
+  };
+
+  return { profile: testProfile, program: testProgram };
+};
+
 export function SetupWizard({ onComplete }) {
   const { user, signInWithGoogle, isAuthenticated, isConfigured } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [strengthGoalError, setStrengthGoalError] = useState(null); // Error for unrealistic strength goals
+  const [devTapCount, setDevTapCount] = useState(0); // For activating test mode
   const [formData, setFormData] = useState({
     // Personal
     name: '',
@@ -390,12 +441,38 @@ export function SetupWizard({ onComplete }) {
     return true;
   };
 
+  // Handle test mode activation (5 taps on logo)
+  const handleLogoTap = () => {
+    const newCount = devTapCount + 1;
+    setDevTapCount(newCount);
+    if (newCount >= 5) {
+      setDevTapCount(0);
+      // Show test mode confirmation
+      if (window.confirm('Enter test mode? This will create a mock profile for testing.')) {
+        const testData = generateTestData();
+        onComplete(testData);
+      }
+    }
+    // Reset tap count after 2 seconds of no taps
+    setTimeout(() => setDevTapCount(0), 2000);
+  };
+
   return (
     <div className="min-h-screen bg-dark-900 flex flex-col">
       {/* Header - Bold brand presence */}
       <header className="px-6 pt-8 pb-4">
-        <h1 className="font-display text-3xl font-bold tracking-tight gradient-text">MOTUS</h1>
+        <h1
+          className="font-display text-3xl font-bold tracking-tight gradient-text cursor-pointer select-none"
+          onClick={handleLogoTap}
+        >
+          MOTUS
+        </h1>
         <p className="text-text-secondary text-sm mt-1">Build your personalized program</p>
+        {devTapCount >= 3 && (
+          <p className="text-accent-primary text-xs mt-1 animate-pulse">
+            {5 - devTapCount} more taps for test mode...
+          </p>
+        )}
       </header>
 
       {/* Step Indicator - Clean, minimal */}
@@ -990,8 +1067,8 @@ function StepPrimaryGoal({ formData, updateFormData }) {
                   >
                     <option value="">Select...</option>
                     {PROGRAM_TYPES.find((p) => p.id === formData.secondaryProgramType)?.subtypes
-                      .filter((s) => s.id !== 'triathlon') // Triathlon can ONLY be primary focus
-                      .map((s) => (
+                      ?.filter((s) => s.id !== 'triathlon') // Triathlon can ONLY be primary focus
+                      ?.map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.label}
                         </option>
