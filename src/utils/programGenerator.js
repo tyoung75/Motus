@@ -965,7 +965,9 @@ function distributeWorkoutDays(daysPerWeek) {
 
 function generateStrengthExercises(focus, phase, isDeload, athleteLevel, weekNumber, strengthBaselines = []) {
   const exercises = [];
-  const { multiplier, level } = athleteLevel;
+  // Defensive: ensure athleteLevel has required properties
+  const level = athleteLevel?.level || 'intermediate';
+  const multiplier = athleteLevel?.multiplier || 1.0;
 
   const volumeBase = isDeload ? 0.5 : (phase === 'Build' ? 1.1 : 1.0);
   const volumeMultiplier = volumeBase * multiplier;
@@ -1178,7 +1180,9 @@ function generateStrengthExercises(focus, phase, isDeload, athleteLevel, weekNum
 
 function generateAestheticExercises(focus, phase, isDeload, athleteLevel, weekNumber) {
   const exercises = [];
-  const { multiplier, level } = athleteLevel;
+  // Defensive: ensure athleteLevel has required properties
+  const level = athleteLevel?.level || 'intermediate';
+  const multiplier = athleteLevel?.multiplier || 1.0;
 
   const volumeBase = isDeload ? 0.5 : (phase === 'Build' ? 1.15 : 1.0);
   const volumeMultiplier = volumeBase * multiplier;
@@ -2147,7 +2151,9 @@ export function generateProgram(formData) {
       }
 
       const workoutIndex = workoutDays.indexOf(dayIndex);
-      const template = splitTemplate[workoutIndex % splitTemplate.length];
+      // Defensive: ensure we have a valid template
+      const templateIndex = splitTemplate.length > 0 ? workoutIndex % splitTemplate.length : 0;
+      const template = splitTemplate[templateIndex] || { name: 'Full Body', focus: ['legs', 'chest', 'back'] };
       const sessions = [];
 
       if (programType === 'endurance') {
@@ -2173,7 +2179,7 @@ export function generateProgram(formData) {
           time: 'ANY',
           type: 'strength',
           focus: template.name,
-          duration: athleteLevel.level === 'elite' ? 90 : 75,
+          duration: athleteLevel?.level === 'elite' ? 90 : 75,
           exercises,
         });
       } else if (programType === 'aesthetic') {
@@ -2182,7 +2188,7 @@ export function generateProgram(formData) {
           time: 'ANY',
           type: 'hypertrophy',
           focus: template.name,
-          duration: athleteLevel.level === 'elite' ? 75 : 60,
+          duration: athleteLevel?.level === 'elite' ? 75 : 60,
           exercises,
         });
       } else if (programType === 'fatloss') {

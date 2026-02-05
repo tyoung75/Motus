@@ -1900,7 +1900,7 @@ function StepGenerate({ formData, isGenerating, onGenerate }) {
       return `${weeks} weeks to race day${time ? ` • Target: ${time}` : ''}`;
     }
     if (formData.programType === 'strength') {
-      const goals = formData.strengthGoals.filter(g => g.target);
+      const goals = (formData.strengthGoals || []).filter(g => g.target);
       return `${goals.length} lift targets set`;
     }
     if (formData.programType === 'aesthetic' && formData.targetBodyFat) {
