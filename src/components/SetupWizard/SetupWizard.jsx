@@ -483,8 +483,9 @@ function SetupWizard({ onComplete }) {
     return true;
   };
 
-  // Handle test mode activation (5 taps on logo)
-  const handleLogoTap = () => {
+  // Handle test mode activation (5 taps on logo OR Ctrl+Shift+T)
+  const handleLogoTap = (e) => {
+    e.preventDefault();
     // Clear any existing timeout
     if (devTapTimeoutRef.current) {
       clearTimeout(devTapTimeoutRef.current);
@@ -495,16 +496,31 @@ function SetupWizard({ onComplete }) {
 
     if (newCount >= 5) {
       setDevTapCount(0);
-      // Show test mode confirmation
-      if (window.confirm('Enter test mode? This will create a mock profile for testing.')) {
-        const testData = generateTestData();
-        onComplete(testData);
-      }
+      activateTestMode();
     } else {
       // Reset tap count after 3 seconds of no taps
       devTapTimeoutRef.current = setTimeout(() => setDevTapCount(0), 3000);
     }
   };
+
+  const activateTestMode = () => {
+    if (window.confirm('Enter test mode? This will create a mock profile for testing.')) {
+      const testData = generateTestData();
+      onComplete(testData);
+    }
+  };
+
+  // Keyboard shortcut for test mode (Ctrl+Shift+T)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'T') {
+        e.preventDefault();
+        activateTestMode();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onComplete]);
 
   return (
     <div className="min-h-screen bg-dark-900 flex flex-col">
@@ -513,6 +529,7 @@ function SetupWizard({ onComplete }) {
         <h1
           className="font-display text-3xl font-bold tracking-tight gradient-text cursor-pointer select-none"
           onClick={handleLogoTap}
+          onTouchEnd={handleLogoTap}
         >
           MOTUS
         </h1>
@@ -522,6 +539,10 @@ function SetupWizard({ onComplete }) {
             {5 - devTapCount} more taps for test mode...
           </p>
         )}
+        {/* Dev hint - shows on desktop */}
+        <p className="text-gray-600 text-xs mt-1 hidden sm:block">
+          Tip: Press Ctrl+Shift+T for test mode
+        </p>
       </header>
 
       {/* Step Indicator - Clean, minimal */}
@@ -1149,13 +1170,16 @@ function StepPrimaryGoal({ formData, updateFormData }) {
 }
 
 /// Step 4: Goal Details
-function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengthGoalError }) {
+function StepGoalDetails({ formData = {}, updateFormData, updateStrengthGoal, strengthGoalError }) {
+  // Defensive defaults
+  const programType = formData.programType || '';
+  const programSubtype = formData.programSubtype || '';
+
   const renderGoalInputs = () => {
-    try {
     // Endurance goals
-    if (formData.programType === 'endurance') {
+    if (programType === 'endurance') {
       // Marathon/Race
-      if (formData.programSubtype === 'marathon' || formData.programSubtype === 'running') {
+      if (programSubtype === 'marathon' || programSubtype === 'running') {
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-white">🏃 Race Details</h3>
@@ -1355,7 +1379,7 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
       }
 
       // Triathlon
-      if (formData.programSubtype === 'triathlon') {
+      if (programSubtype === 'triathlon') {
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-white">🏊 Triathlon Details</h3>
@@ -1466,7 +1490,7 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
     }
 
     // Strength goals - 5 exercises
-    if (formData.programType === 'strength') {
+    if (programType === 'strength') {
       // Defensive check for strengthGoals
       const strengthGoals = formData.strengthGoals || STRENGTH_EXERCISES.map(ex => ({
         id: ex.id,
@@ -1529,7 +1553,7 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
     }
 
     // Aesthetic goals - body fat target
-    if (formData.programType === 'aesthetic') {
+    if (programType === 'aesthetic') {
       return (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-white">💪 Physique Goals</h3>
@@ -1596,7 +1620,7 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
     }
 
     // Fat Loss
-    if (formData.programType === 'fatloss') {
+    if (programType === 'fatloss') {
       const currentWeight = parseFloat(formData.weight) || 0;
       const targetWeight = parseFloat(formData.targetWeight) || currentWeight;
       const weightToLose = currentWeight - targetWeight;
@@ -1652,15 +1676,6 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
     }
 
     return null;
-    } catch (error) {
-      console.error('Error rendering goal inputs:', error);
-      return (
-        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-          <p className="text-red-400">Error loading goal details. Please go back and try again.</p>
-          <p className="text-xs text-gray-500 mt-2">{error?.message}</p>
-        </div>
-      );
-    }
   };
 
   return (
@@ -1673,7 +1688,7 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
       {renderGoalInputs()}
 
       {/* Strength Goal Error */}
-      {strengthGoalError && formData.programType === 'strength' && (
+      {strengthGoalError && programType === 'strength' && (
         <div className="mt-4 p-4 bg-accent-danger/10 border border-accent-danger/30 rounded-xl">
           <h4 className="text-accent-danger font-semibold mb-2 flex items-center gap-2">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
