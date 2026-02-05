@@ -169,6 +169,7 @@ export function SetupWizard({ onComplete }) {
     // Training preferences
     sessionDuration: 60,
     equipment: 'full',
+    programStartDate: '', // When the program should begin
 
     // Nutrition Goal
     nutritionGoal: 'maintain',
@@ -1521,6 +1522,24 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
           </p>
         </div>
       )}
+
+      {/* Program Start Date */}
+      <div className="pt-6 border-t border-dark-600">
+        <h3 className="text-lg font-semibold text-white mb-4">📅 Program Start Date</h3>
+        <p className="text-sm text-text-secondary mb-3">
+          When would you like to begin your program?
+        </p>
+        <input
+          type="date"
+          value={formData.programStartDate}
+          min={getTodayString()}
+          onChange={(e) => updateFormData('programStartDate', e.target.value)}
+          className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white"
+        />
+        <p className="text-xs text-text-muted mt-2">
+          Leave blank to start today
+        </p>
+      </div>
 
       {/* Nutrition Goal */}
       <div className="pt-6 border-t border-dark-600">

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Clock, CheckCircle, Circle, Zap, Droplets, Moon, Utensils, Heart, Calendar, TrendingUp, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CheckCircle, Circle, Zap, Droplets, Moon, Utensils, Heart, Calendar, TrendingUp, AlertCircle, Edit3, X, Save } from 'lucide-react';
 import { Card, CardBody, Button } from '../shared';
 
 const DAY_NAMES = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -275,11 +275,13 @@ const getRecoveryRecommendations = (program) => {
   return baseRecommendations;
 };
 
-export function ProgramView({ program, completedWorkouts, onCompleteExercise, onBack }) {
+export function ProgramView({ program, completedWorkouts, onCompleteExercise, onCompleteSession, onUpdateExerciseLog, onBack }) {
   // Default to Monday (day 1) when viewing program, not today
   const [selectedDay, setSelectedDay] = useState(1);
   const [expandedSession, setExpandedSession] = useState(0);
   const [viewingWeek, setViewingWeek] = useState(program?.currentWeek || 1);
+  const [editingExercise, setEditingExercise] = useState(null); // {sessionIdx, exIdx}
+  const [editValues, setEditValues] = useState({ sets: '', reps: '', weight: '', notes: '' });
 
   const totalWeeks = program?.totalWeeks || program?.mesocycleWeeks || 12;
   const phases = program?.phases || [];
@@ -309,6 +311,47 @@ export function ProgramView({ program, completedWorkouts, onCompleteExercise, on
     // Only show completion status for current week
     if (viewingWeek !== program?.currentWeek) return false;
     return completedWorkouts.some((w) => w.day === selectedDay && w.sessionIndex === sessionIndex && w.completedExercises?.includes(exerciseIndex));
+  };
+
+  // Get logged data for an exercise (actual weights/sets/reps used)
+  const getExerciseLog = (sessionIndex, exerciseIndex) => {
+    const workout = completedWorkouts.find((w) => w.day === selectedDay && w.sessionIndex === sessionIndex);
+    return workout?.exerciseLogs?.[exerciseIndex] || null;
+  };
+
+  // Check if all exercises in a session are completed
+  const isSessionCompleted = (sessionIndex) => {
+    const session = daySchedule?.sessions?.[sessionIndex];
+    if (!session?.exercises) return false;
+    return session.exercises.every((_, exIdx) => isExerciseCompleted(sessionIndex, exIdx));
+  };
+
+  // Handle starting edit mode for an exercise
+  const startEditingExercise = (sessionIdx, exIdx, exercise) => {
+    const log = getExerciseLog(sessionIdx, exIdx);
+    setEditingExercise({ sessionIdx, exIdx });
+    setEditValues({
+      sets: log?.sets || exercise.sets || '',
+      reps: log?.reps || exercise.reps || '',
+      weight: log?.weight || exercise.startingWeight || '',
+      notes: log?.notes || '',
+    });
+  };
+
+  // Handle saving exercise edits
+  const saveExerciseEdit = () => {
+    if (editingExercise && onUpdateExerciseLog) {
+      onUpdateExerciseLog(selectedDay, editingExercise.sessionIdx, editingExercise.exIdx, editValues);
+    }
+    setEditingExercise(null);
+    setEditValues({ sets: '', reps: '', weight: '', notes: '' });
+  };
+
+  // Handle completing entire session
+  const handleCompleteSession = (sessionIdx) => {
+    if (onCompleteSession) {
+      onCompleteSession(selectedDay, sessionIdx);
+    }
   };
 
   const canGoBack = viewingWeek > 1;
@@ -548,41 +591,172 @@ export function ProgramView({ program, completedWorkouts, onCompleteExercise, on
                 {expandedSession === sessionIdx && (
                   <div className="px-5 pb-5 space-y-3">
                     <hr className="border-dark-600" />
-                    {session.exercises?.map((exercise, exIdx) => (
-                      <div key={exIdx} className={`p-4 rounded-lg border ${isExerciseCompleted(sessionIdx, exIdx) ? 'bg-accent-success/10 border-accent-success/30' : 'bg-dark-700 border-dark-600'}`}>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-medium text-white">{exercise.name}</h4>
-                              {isExerciseCompleted(sessionIdx, exIdx) && <CheckCircle className="w-4 h-4 text-accent-success" />}
-                            </div>
-                            <div className="flex flex-wrap gap-3 mt-2 text-sm">
-                              {exercise.sets && <span className="text-gray-400"><span className="text-white font-medium">{exercise.sets}</span> sets</span>}
-                              {exercise.reps && <span className="text-gray-400"><span className="text-white font-medium">{exercise.reps}</span></span>}
-                              {exercise.startingWeight && <span className="text-gray-400">Weight <span className="text-accent-primary font-medium">{exercise.startingWeight}</span></span>}
-                              {exercise.rpe && <span className="text-gray-400">RPE <span className="text-accent-warning font-medium">{exercise.rpe}</span></span>}
-                              {exercise.pace && <span className="text-gray-400">Pace <span className="text-accent-primary font-medium">{exercise.pace}</span></span>}
-                              {exercise.heartRateZone && <span className="text-gray-400">Zone <span className="text-red-400 font-medium">{exercise.heartRateZone}</span></span>}
-                              {exercise.rest && <span className="text-gray-400">Rest <span className="text-white">{exercise.rest}</span></span>}
-                            </div>
-                            {(exercise.current1RM || exercise.target1RM) && (
-                              <div className="flex gap-4 mt-2 text-xs">
-                                {exercise.current1RM && <span className="text-gray-500">Current 1RM: <span className="text-gray-300">{exercise.current1RM}</span></span>}
-                                {exercise.target1RM && <span className="text-gray-500">Target 1RM: <span className="text-accent-secondary">{exercise.target1RM}</span></span>}
+                    {session.exercises?.map((exercise, exIdx) => {
+                      const isCompleted = isExerciseCompleted(sessionIdx, exIdx);
+                      const exerciseLog = getExerciseLog(sessionIdx, exIdx);
+                      const isEditing = editingExercise?.sessionIdx === sessionIdx && editingExercise?.exIdx === exIdx;
+
+                      return (
+                        <div key={exIdx} className={`p-4 rounded-lg border ${isCompleted ? 'bg-accent-success/10 border-accent-success/30' : 'bg-dark-700 border-dark-600'}`}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="font-medium text-white">{exercise.name}</h4>
+                                {isCompleted && (
+                                  <span className="flex items-center gap-1 px-2 py-0.5 bg-accent-success/20 rounded-full">
+                                    <CheckCircle className="w-3 h-3 text-accent-success" />
+                                    <span className="text-xs text-accent-success font-medium">Done</span>
+                                  </span>
+                                )}
                               </div>
-                            )}
-                            {exercise.notes && <p className="mt-2 text-sm text-gray-500 italic">💡 {exercise.notes}</p>}
-                            {exercise.progression && (
-                              <p className="mt-1 text-xs text-accent-secondary">📈 {exercise.progression}</p>
-                            )}
+
+                              {/* Edit Mode */}
+                              {isEditing ? (
+                                <div className="mt-3 space-y-3">
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div>
+                                      <label className="text-xs text-gray-500 mb-1 block">Sets</label>
+                                      <input
+                                        type="text"
+                                        value={editValues.sets}
+                                        onChange={(e) => setEditValues({ ...editValues, sets: e.target.value })}
+                                        placeholder={exercise.sets || 'Sets'}
+                                        className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded text-white text-sm"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-gray-500 mb-1 block">Reps</label>
+                                      <input
+                                        type="text"
+                                        value={editValues.reps}
+                                        onChange={(e) => setEditValues({ ...editValues, reps: e.target.value })}
+                                        placeholder={exercise.reps || 'Reps'}
+                                        className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded text-white text-sm"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-gray-500 mb-1 block">Weight</label>
+                                      <input
+                                        type="text"
+                                        value={editValues.weight}
+                                        onChange={(e) => setEditValues({ ...editValues, weight: e.target.value })}
+                                        placeholder={exercise.startingWeight || 'Weight'}
+                                        className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded text-white text-sm"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="text-xs text-gray-500 mb-1 block">Notes (optional)</label>
+                                    <input
+                                      type="text"
+                                      value={editValues.notes}
+                                      onChange={(e) => setEditValues({ ...editValues, notes: e.target.value })}
+                                      placeholder="How did it feel? Any adjustments?"
+                                      className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded text-white text-sm"
+                                    />
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={saveExerciseEdit}
+                                      className="flex items-center gap-1 px-3 py-1.5 bg-accent-success text-white rounded-lg text-sm font-medium hover:bg-accent-success/80"
+                                    >
+                                      <Save className="w-4 h-4" />
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingExercise(null)}
+                                      className="flex items-center gap-1 px-3 py-1.5 bg-dark-600 text-gray-400 rounded-lg text-sm hover:bg-dark-500"
+                                    >
+                                      <X className="w-4 h-4" />
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  {/* Logged values (if different from planned) */}
+                                  {exerciseLog && (
+                                    <div className="mt-2 p-2 bg-accent-primary/10 rounded-lg border border-accent-primary/20">
+                                      <span className="text-xs text-accent-primary font-medium">Logged: </span>
+                                      <span className="text-sm text-white">
+                                        {exerciseLog.sets && `${exerciseLog.sets} sets`}
+                                        {exerciseLog.reps && ` × ${exerciseLog.reps}`}
+                                        {exerciseLog.weight && ` @ ${exerciseLog.weight}`}
+                                      </span>
+                                      {exerciseLog.notes && (
+                                        <p className="text-xs text-gray-400 mt-1">"{exerciseLog.notes}"</p>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Planned values */}
+                                  <div className="flex flex-wrap gap-3 mt-2 text-sm">
+                                    {exercise.sets && <span className="text-gray-400"><span className="text-white font-medium">{exercise.sets}</span> sets</span>}
+                                    {exercise.reps && <span className="text-gray-400"><span className="text-white font-medium">{exercise.reps}</span></span>}
+                                    {exercise.startingWeight && <span className="text-gray-400">Target <span className="text-accent-primary font-medium">{exercise.startingWeight}</span></span>}
+                                    {exercise.rpe && <span className="text-gray-400">RPE <span className="text-accent-warning font-medium">{exercise.rpe}</span></span>}
+                                    {exercise.pace && <span className="text-gray-400">Pace <span className="text-accent-primary font-medium">{exercise.pace}</span></span>}
+                                    {exercise.heartRateZone && <span className="text-gray-400">Zone <span className="text-red-400 font-medium">{exercise.heartRateZone}</span></span>}
+                                    {exercise.rest && <span className="text-gray-400">Rest <span className="text-white">{exercise.rest}</span></span>}
+                                  </div>
+                                  {(exercise.current1RM || exercise.target1RM) && (
+                                    <div className="flex gap-4 mt-2 text-xs">
+                                      {exercise.current1RM && <span className="text-gray-500">Current 1RM: <span className="text-gray-300">{exercise.current1RM}</span></span>}
+                                      {exercise.target1RM && <span className="text-gray-500">Target 1RM: <span className="text-accent-secondary">{exercise.target1RM}</span></span>}
+                                    </div>
+                                  )}
+                                  {exercise.notes && <p className="mt-2 text-sm text-gray-500 italic">💡 {exercise.notes}</p>}
+                                  {exercise.progression && (
+                                    <p className="mt-1 text-xs text-accent-secondary">📈 {exercise.progression}</p>
+                                  )}
+                                </>
+                              )}
+                            </div>
+
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-1">
+                              {/* Edit button */}
+                              {!isEditing && viewingWeek === program?.currentWeek && (
+                                <button
+                                  onClick={() => startEditingExercise(sessionIdx, exIdx, exercise)}
+                                  className="p-2 rounded-lg text-gray-500 hover:text-accent-primary hover:bg-dark-600 transition-colors"
+                                  title="Log actual performance"
+                                >
+                                  <Edit3 className="w-5 h-5" />
+                                </button>
+                              )}
+
+                              {/* Complete toggle */}
+                              {!isEditing && (
+                                <button
+                                  onClick={() => onCompleteExercise(selectedDay, sessionIdx, exIdx)}
+                                  className={`p-2 rounded-lg transition-colors ${isCompleted ? 'text-accent-success' : 'text-gray-500 hover:text-white hover:bg-dark-600'}`}
+                                  title={isCompleted ? 'Mark incomplete' : 'Mark complete'}
+                                >
+                                  {isCompleted ? <CheckCircle className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <button onClick={() => onCompleteExercise(selectedDay, sessionIdx, exIdx)} className={`p-2 rounded-lg transition-colors ${isExerciseCompleted(sessionIdx, exIdx) ? 'text-accent-success' : 'text-gray-500 hover:text-white hover:bg-dark-600'}`}>
-                            {isExerciseCompleted(sessionIdx, exIdx) ? <CheckCircle className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
-                          </button>
                         </div>
-                      </div>
-                    ))}
-                    <Button fullWidth variant="success" className="mt-4"><Zap className="w-4 h-4 mr-2" />Complete Session</Button>
+                      );
+                    })}
+                    {isSessionCompleted(sessionIdx) ? (
+                                      <div className="mt-4 p-3 bg-accent-success/20 rounded-lg border border-accent-success/30 text-center">
+                                        <CheckCircle className="w-5 h-5 text-accent-success inline mr-2" />
+                                        <span className="text-accent-success font-medium">Session Complete!</span>
+                                      </div>
+                                    ) : (
+                                      <Button
+                                        fullWidth
+                                        variant="success"
+                                        className="mt-4"
+                                        onClick={() => handleCompleteSession(sessionIdx)}
+                                      >
+                                        <Zap className="w-4 h-4 mr-2" />
+                                        Complete All Exercises
+                                      </Button>
+                                    )}
                   </div>
                 )}
               </Card>

@@ -25,21 +25,41 @@ export function ProgramOverview({ profile, program }) {
     weeksUntilGoal,
   } = program;
 
-  // Calculate phase breakdown
+  // Calculate phase breakdown - show phases in order as they occur
+  // Groups consecutive weeks of the same phase together
   const getPhaseBreakdown = () => {
     if (!phases || phases.length === 0) return [];
 
-    const phaseMap = {};
+    const breakdown = [];
+    let currentPhaseBlock = null;
+
     phases.forEach((phase, idx) => {
-      if (!phaseMap[phase]) {
-        phaseMap[phase] = { name: phase, startWeek: idx + 1, endWeek: idx + 1, weeks: 1 };
+      const weekNum = idx + 1;
+
+      if (!currentPhaseBlock || currentPhaseBlock.name !== phase) {
+        // Start a new phase block
+        if (currentPhaseBlock) {
+          breakdown.push(currentPhaseBlock);
+        }
+        currentPhaseBlock = {
+          name: phase,
+          startWeek: weekNum,
+          endWeek: weekNum,
+          weeks: 1,
+        };
       } else {
-        phaseMap[phase].endWeek = idx + 1;
-        phaseMap[phase].weeks++;
+        // Continue the current phase block
+        currentPhaseBlock.endWeek = weekNum;
+        currentPhaseBlock.weeks++;
       }
     });
 
-    return Object.values(phaseMap);
+    // Don't forget the last block
+    if (currentPhaseBlock) {
+      breakdown.push(currentPhaseBlock);
+    }
+
+    return breakdown;
   };
 
   // Get phase focus description

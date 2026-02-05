@@ -155,6 +155,69 @@ function AppContent() {
     }
   };
 
+  // Handle completing entire session at once
+  const handleCompleteSession = (day, sessionIndex) => {
+    const session = program?.weeklySchedule?.find((d) => d.day === day)?.sessions?.[sessionIndex];
+    if (!session?.exercises) return;
+
+    const exerciseIndices = session.exercises.map((_, idx) => idx);
+    const existing = completedExercises.find(
+      (c) => c.day === day && c.sessionIndex === sessionIndex
+    );
+
+    if (existing) {
+      // Update existing entry with all exercises
+      const updated = completedExercises.map((c) =>
+        c.day === day && c.sessionIndex === sessionIndex
+          ? { ...c, completedExercises: exerciseIndices }
+          : c
+      );
+      setCompletedExercises(updated);
+    } else {
+      // Create new entry with all exercises
+      setCompletedExercises([
+        ...completedExercises,
+        { day, sessionIndex, completedExercises: exerciseIndices, exerciseLogs: {} },
+      ]);
+    }
+  };
+
+  // Handle updating exercise log (actual weights/sets/reps)
+  const handleUpdateExerciseLog = (day, sessionIndex, exerciseIndex, logData) => {
+    const existing = completedExercises.find(
+      (c) => c.day === day && c.sessionIndex === sessionIndex
+    );
+
+    if (existing) {
+      const updated = completedExercises.map((c) =>
+        c.day === day && c.sessionIndex === sessionIndex
+          ? {
+              ...c,
+              exerciseLogs: {
+                ...c.exerciseLogs,
+                [exerciseIndex]: logData,
+              },
+              // Also mark as completed when logging
+              completedExercises: c.completedExercises.includes(exerciseIndex)
+                ? c.completedExercises
+                : [...c.completedExercises, exerciseIndex],
+            }
+          : c
+      );
+      setCompletedExercises(updated);
+    } else {
+      setCompletedExercises([
+        ...completedExercises,
+        {
+          day,
+          sessionIndex,
+          completedExercises: [exerciseIndex],
+          exerciseLogs: { [exerciseIndex]: logData },
+        },
+      ]);
+    }
+  };
+
   // Handle reset
   const handleResetSetup = async () => {
     if (window.confirm('Are you sure you want to reset? All your data will be lost.')) {
@@ -218,6 +281,8 @@ function AppContent() {
           program={program}
           completedWorkouts={completedExercises}
           onCompleteExercise={handleCompleteExercise}
+          onCompleteSession={handleCompleteSession}
+          onUpdateExerciseLog={handleUpdateExerciseLog}
           onBack={() => setActiveTab('dashboard')}
         />
       )}
