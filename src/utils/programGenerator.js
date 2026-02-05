@@ -416,117 +416,111 @@ const ENDURANCE_TEMPLATES = {
   triathlon: {
     // Triathlon-specific templates with double/triple days built in
     // Based on professional triathlon training methodology
-    4: ['Swim + Run', 'Bike', 'Swim + Strength', 'Long Bike/Run Brick'],
-    5: ['Swim + Run', 'Bike Intervals', 'Swim + Strength', 'Run Tempo', 'Long Ride + Run Brick'],
-    6: ['Swim AM / Run PM', 'Bike Intervals', 'Swim + Strength', 'Run Tempo', 'Swim + Easy Ride', 'Long Brick'],
-    7: ['Swim AM / Run PM', 'Bike Intervals', 'Swim + Strength', 'Run Tempo', 'Swim + Easy Ride', 'Easy Run', 'Long Brick'],
+    // MINIMUM 3 STRENGTH DAYS per week (injury prevention, not hypertrophy)
+    // Double/triple days marked with + or /
+    5: [
+      'Swim + Strength',           // Mon: AM swim technique, PM injury prevention strength
+      'Bike Intervals + Strength', // Tue: AM bike intervals, PM light strength (core/stability)
+      'Run + Strength',            // Wed: AM easy/moderate run, PM strength (hip/glute focus)
+      'Swim + Run',                // Thu: AM swim, PM easy run (double day)
+      'Long Brick',                // Sat: Long bike + brick run off the bike
+    ],
+    6: [
+      'Swim + Strength',           // Mon: AM swim, PM full strength session
+      'Bike Intervals',            // Tue: Bike quality session
+      'Run + Strength',            // Wed: AM run, PM strength (hip stability/core)
+      'Swim + Easy Ride',          // Thu: AM swim, PM easy bike (active recovery)
+      'Run Tempo + Strength',      // Fri: AM tempo run, PM light strength (prehab)
+      'Long Brick',                // Sat: Long ride + brick run
+    ],
+    7: [
+      'Swim + Strength',           // Mon: AM swim, PM full strength session
+      'Bike Intervals',            // Tue: Quality bike
+      'Run + Strength',            // Wed: AM easy run, PM strength
+      'Swim AM / Run PM',          // Thu: Double swim/run
+      'Bike + Strength',           // Fri: AM easy bike, PM light strength
+      'Run Tempo',                 // Sat: Quality run session
+      'Long Brick',                // Sun: Key long session
+    ],
   },
 };
 
 // Triathlon-specific injury prevention strength exercises
 // Focus: single-leg stability, hip strength, core, rotator cuff - NOT hypertrophy
-function generateTriathlonStrengthExercises(phase, isDeload, athleteLevel, weekNumber) {
+function generateTriathlonStrengthExercises(phase, isDeload, athleteLevel, weekNumber, focus = 'full') {
   const exercises = [];
   const { multiplier, level } = athleteLevel;
-  const volumeBase = isDeload ? 0.5 : 1.0;
+  const volumeBase = isDeload ? 0.6 : 1.0;
 
-  // Single-leg stability (crucial for running and cycling power)
-  exercises.push({
-    name: 'Single-Leg Romanian Deadlift',
-    sets: Math.round(3 * volumeBase),
-    reps: '8-10 each leg',
-    rpe: 6,
-    rest: '60s',
-    notes: 'Focus on hip stability, not weight. Light dumbbells only.',
-    progression: 'Master balance before adding weight. This is injury prevention.',
-  });
+  // Exercise library - will select based on focus
+  const hipExercises = [
+    {
+      name: 'Single-Leg Romanian Deadlift',
+      sets: Math.round(3 * volumeBase),
+      reps: '8-10 each leg',
+      rpe: 6,
+      rest: '60s',
+      notes: 'Focus on hip stability, not weight. Light dumbbells only.',
+      progression: 'Master balance before adding weight. This is injury prevention.',
+    },
+    {
+      name: 'Bulgarian Split Squat',
+      sets: Math.round(3 * volumeBase),
+      reps: '10-12 each leg',
+      rpe: 6,
+      rest: '60s',
+      notes: 'Control descent, drive through front heel. Build single-leg strength.',
+      progression: 'Add 5lbs every 2-3 weeks when form is solid.',
+    },
+    {
+      name: 'Lateral Band Walks',
+      sets: 3,
+      reps: '15 each direction',
+      rpe: 5,
+      rest: '30s',
+      notes: 'Keep tension on band throughout. Glute med activation.',
+      progression: 'Use heavier band as it becomes easy.',
+    },
+    {
+      name: 'Clamshells',
+      sets: 3,
+      reps: '15-20 each side',
+      rpe: 5,
+      rest: '30s',
+      notes: 'External hip rotation. Critical for knee health in running.',
+      progression: 'Add resistance band when bodyweight is easy.',
+    },
+  ];
 
-  exercises.push({
-    name: 'Bulgarian Split Squat',
-    sets: Math.round(3 * volumeBase),
-    reps: '10-12 each leg',
-    rpe: 6,
-    rest: '60s',
-    notes: 'Control descent, drive through front heel. Build single-leg strength.',
-    progression: 'Add 5lbs every 2-3 weeks when form is solid.',
-  });
-
-  // Hip strength (IT band issues, hip flexor tightness prevention)
-  exercises.push({
-    name: 'Lateral Band Walks',
-    sets: 3,
-    reps: '15 each direction',
-    rpe: 5,
-    rest: '30s',
-    notes: 'Keep tension on band throughout. Glute med activation.',
-    progression: 'Use heavier band as it becomes easy.',
-  });
-
-  exercises.push({
-    name: 'Clamshells',
-    sets: 3,
-    reps: '15-20 each side',
-    rpe: 5,
-    rest: '30s',
-    notes: 'External hip rotation. Critical for knee health in running.',
-    progression: 'Add resistance band when bodyweight is easy.',
-  });
-
-  // Core stability (swim rotation, run posture, bike power transfer)
-  exercises.push({
-    name: 'Dead Bug',
-    sets: 3,
-    reps: '10 each side',
-    rpe: 5,
-    rest: '45s',
-    notes: 'Keep lower back pressed to floor. Anti-extension strength.',
-    progression: 'Slow the movement, add holds at end range.',
-  });
-
-  exercises.push({
-    name: 'Pallof Press',
-    sets: 3,
-    reps: '10 each side',
-    rpe: 6,
-    rest: '45s',
-    notes: 'Anti-rotation core work. Essential for swim and run.',
-    progression: 'Increase cable weight or add iso holds.',
-  });
-
-  exercises.push({
-    name: 'Side Plank',
-    sets: 2,
-    reps: '30-45s each side',
-    rpe: 6,
-    rest: '30s',
-    notes: 'Hip elevated, straight line from head to feet.',
-    progression: 'Add hip dips or raise top leg.',
-  });
-
-  // Shoulder stability (swim injury prevention)
-  exercises.push({
-    name: 'Band Pull-Aparts',
-    sets: 3,
-    reps: '15-20',
-    rpe: 5,
-    rest: '30s',
-    notes: 'Squeeze shoulder blades together. Rotator cuff health.',
-    progression: 'Essential for swim shoulder health - never skip.',
-  });
-
-  exercises.push({
-    name: 'External Rotation (Cable/Band)',
-    sets: 2,
-    reps: '15 each arm',
-    rpe: 5,
-    rest: '30s',
-    notes: 'Elbow pinned to side, rotate out. Swim-specific prehab.',
-    progression: 'Keep light - this is prehab, not strength training.',
-  });
-
-  // Only add if advanced/elite - low back resilience
-  if (level === 'advanced' || level === 'elite') {
-    exercises.push({
+  const coreExercises = [
+    {
+      name: 'Dead Bug',
+      sets: 3,
+      reps: '10 each side',
+      rpe: 5,
+      rest: '45s',
+      notes: 'Keep lower back pressed to floor. Anti-extension strength.',
+      progression: 'Slow the movement, add holds at end range.',
+    },
+    {
+      name: 'Pallof Press',
+      sets: 3,
+      reps: '10 each side',
+      rpe: 6,
+      rest: '45s',
+      notes: 'Anti-rotation core work. Essential for swim and run.',
+      progression: 'Increase cable weight or add iso holds.',
+    },
+    {
+      name: 'Side Plank',
+      sets: 2,
+      reps: '30-45s each side',
+      rpe: 6,
+      rest: '30s',
+      notes: 'Hip elevated, straight line from head to feet.',
+      progression: 'Add hip dips or raise top leg.',
+    },
+    {
       name: 'Bird Dog',
       sets: 3,
       reps: '8 each side with 3s hold',
@@ -534,7 +528,71 @@ function generateTriathlonStrengthExercises(phase, isDeload, athleteLevel, weekN
       rest: '45s',
       notes: 'Opposite arm/leg extension with neutral spine.',
       progression: 'Add resistance band around foot.',
-    });
+    },
+  ];
+
+  const shoulderExercises = [
+    {
+      name: 'Band Pull-Aparts',
+      sets: 3,
+      reps: '15-20',
+      rpe: 5,
+      rest: '30s',
+      notes: 'Squeeze shoulder blades together. Rotator cuff health.',
+      progression: 'Essential for swim shoulder health - never skip.',
+    },
+    {
+      name: 'External Rotation (Cable/Band)',
+      sets: 2,
+      reps: '15 each arm',
+      rpe: 5,
+      rest: '30s',
+      notes: 'Elbow pinned to side, rotate out. Swim-specific prehab.',
+      progression: 'Keep light - this is prehab, not strength training.',
+    },
+    {
+      name: 'Face Pulls',
+      sets: 3,
+      reps: '15',
+      rpe: 5,
+      rest: '30s',
+      notes: 'Pull to face, external rotate at end. Rear delt & rotator cuff.',
+      progression: 'Keep light - focus on squeeze at end range.',
+    },
+  ];
+
+  // Select exercises based on focus type
+  switch (focus) {
+    case 'hip':
+      // Hip/glute focused - ideal after running
+      exercises.push(...hipExercises);
+      exercises.push(coreExercises[0]); // Add Dead Bug for core
+      break;
+
+    case 'core':
+      // Core/stability focused - ideal after bike intervals
+      exercises.push(...coreExercises);
+      exercises.push(hipExercises[2]); // Add Lateral Band Walks
+      break;
+
+    case 'prehab':
+      // Light prehab focused - ideal after tempo runs
+      exercises.push(...shoulderExercises);
+      exercises.push(coreExercises[0]); // Dead Bug
+      exercises.push(hipExercises[2]); // Lateral Band Walks
+      break;
+
+    case 'full':
+    default:
+      // Full strength session - all exercises (swim + strength days)
+      exercises.push(...hipExercises);
+      exercises.push(...coreExercises.slice(0, 3)); // Skip Bird Dog for time
+      exercises.push(...shoulderExercises.slice(0, 2)); // Main shoulder work
+      // Add Bird Dog for advanced athletes
+      if (level === 'advanced' || level === 'elite') {
+        exercises.push(coreExercises[3]);
+      }
+      break;
   }
 
   return exercises;
@@ -765,6 +823,106 @@ function generateTriathlonSession(sessionType, phase, isDeload, athleteLevel, pa
             progression: 'Keep easy days easy.',
           },
         ],
+      };
+
+    case 'Bike Intervals + Strength':
+      return {
+        name: 'Bike Intervals + Strength',
+        duration: 90,
+        exercises: [
+          {
+            name: 'Bike Interval Session',
+            sets: isDeload ? 3 : (level === 'elite' ? 6 : 5),
+            reps: '5 min @ FTP',
+            pace: 'FTP (Functional Threshold Power)',
+            heartRateZone: 'Zone 4',
+            rpe: 8,
+            rest: '2 min easy spin',
+            notes: 'Quality intervals. Maintain power throughout.',
+            progression: `Week ${weekNumber}: Key bike session.`,
+          },
+        ],
+        strengthSession: generateTriathlonStrengthExercises(phase, isDeload, athleteLevel, weekNumber, 'core'),
+      };
+
+    case 'Run + Strength':
+      return {
+        name: 'Run + Strength',
+        duration: 85,
+        exercises: [
+          {
+            name: 'Easy-Moderate Run',
+            sets: 1,
+            reps: isDeload ? '35 min' : '45-50 min',
+            pace: paces?.easyPace || '9:00/mi',
+            heartRateZone: 'Zone 2',
+            rpe: 5,
+            rest: 'N/A',
+            notes: 'Comfortable effort. Focus on form and cadence.',
+            progression: `Week ${weekNumber}: Build aerobic base.`,
+          },
+        ],
+        strengthSession: generateTriathlonStrengthExercises(phase, isDeload, athleteLevel, weekNumber, 'hip'),
+      };
+
+    case 'Bike + Strength':
+      return {
+        name: 'Bike + Strength',
+        duration: 80,
+        exercises: [
+          {
+            name: 'Easy Aerobic Ride',
+            sets: 1,
+            reps: isDeload ? '45 min' : '60 min',
+            pace: 'Aerobic (Zone 2)',
+            heartRateZone: 'Zone 2',
+            rpe: 5,
+            rest: 'N/A',
+            notes: 'Easy spinning. Active recovery ride with strength after.',
+            progression: 'Keep intensity low to allow for PM strength.',
+          },
+        ],
+        strengthSession: generateTriathlonStrengthExercises(phase, isDeload, athleteLevel, weekNumber, 'full'),
+      };
+
+    case 'Run Tempo + Strength':
+      return {
+        name: 'Run Tempo + Strength',
+        duration: 95,
+        exercises: [
+          {
+            name: 'Warm-up',
+            sets: 1,
+            reps: '1 mile',
+            pace: paces?.easyPace || '9:30/mi',
+            heartRateZone: 'Zone 2',
+            rpe: 4,
+            rest: 'N/A',
+            notes: 'Easy jog with strides.',
+          },
+          {
+            name: 'Tempo',
+            sets: 1,
+            reps: isDeload ? '12 min' : (level === 'elite' ? '25 min' : '18-20 min'),
+            pace: paces?.tempoPace || '7:30/mi',
+            heartRateZone: 'Zone 3-4',
+            rpe: 7,
+            rest: 'N/A',
+            notes: 'Comfortably hard. Shorter than standalone tempo to allow for strength.',
+            progression: `Week ${weekNumber}: Quality over quantity.`,
+          },
+          {
+            name: 'Cool-down',
+            sets: 1,
+            reps: '0.5 miles',
+            pace: paces?.recoveryPace || '10:00/mi',
+            heartRateZone: 'Zone 1',
+            rpe: 3,
+            rest: 'N/A',
+            notes: 'Easy jog.',
+          },
+        ],
+        strengthSession: generateTriathlonStrengthExercises(phase, isDeload, athleteLevel, weekNumber, 'prehab'),
       };
 
     default:
@@ -1820,9 +1978,58 @@ export function generateProgram(formData) {
 
       const sessions = [];
 
-      // Handle multi-sport sessions (contains "/")
-      if (sessionType.includes('/') || sessionType.includes('+')) {
-        // Multi-session day (double or brick)
+      // PRIORITY 1: Sessions with Strength component (check BEFORE multi-sport)
+      if (sessionType.includes('Strength')) {
+        // Sessions: 'Swim + Strength', 'Bike Intervals + Strength', 'Run + Strength', 'Bike + Strength', 'Run Tempo + Strength'
+        const strengthExercises = triSession.strengthSession || [];
+
+        // Determine the cardio type from session name
+        const isSwim = sessionType.toLowerCase().includes('swim');
+        const isBike = sessionType.toLowerCase().includes('bike');
+        const isRun = sessionType.toLowerCase().includes('run') || sessionType.toLowerCase().includes('tempo');
+
+        // Get cardio exercises (non-strength)
+        const cardioExercises = triSession.exercises.filter(e =>
+          !e.name.toLowerCase().includes('strength') &&
+          !e.name.toLowerCase().includes('prevention')
+        );
+
+        // AM: Cardio session
+        if (cardioExercises.length > 0) {
+          const cardioType = isSwim ? 'swim' : isBike ? 'bike' : 'run';
+          const cardioFocus = isSwim ? 'Technique Swim' :
+                             sessionType.includes('Intervals') ? 'Bike Intervals' :
+                             sessionType.includes('Tempo') ? 'Tempo Run' :
+                             isBike ? 'Easy Bike' : 'Easy-Moderate Run';
+          sessions.push({
+            time: 'AM',
+            type: cardioType,
+            focus: cardioFocus,
+            duration: Math.round(triSession.duration * 0.55),
+            exercises: cardioExercises,
+          });
+        }
+
+        // PM: Strength session (INJURY PREVENTION - not hypertrophy)
+        if (strengthExercises.length > 0) {
+          const strengthFocus = sessionType.includes('Swim') ? 'Full Injury Prevention' :
+                               sessionType.includes('Run + Strength') ? 'Hip & Glute Stability' :
+                               sessionType.includes('Bike + Strength') ? 'Core & Stability' :
+                               sessionType.includes('Tempo') ? 'Prehab & Mobility' :
+                               'Core & Stability';
+          sessions.push({
+            time: 'PM',
+            type: 'strength',
+            focus: strengthFocus,
+            duration: 35,
+            exercises: strengthExercises,
+            notes: 'Triathlon injury prevention: NOT hypertrophy. Focus on stability & resilience.',
+          });
+        }
+      }
+      // PRIORITY 2: Multi-sport double days (no strength)
+      else if (sessionType.includes('/') || sessionType.includes('+')) {
+        // Sessions: 'Swim + Run', 'Swim AM / Run PM', 'Swim + Easy Ride'
         if (triSession.exercises.length >= 2) {
           // Split into AM/PM sessions
           sessions.push({
@@ -1851,34 +2058,9 @@ export function generateProgram(formData) {
             exercises: triSession.exercises,
           });
         }
-      } else if (sessionType.includes('Strength')) {
-        // Combined swim + strength session
-        const swimExercises = triSession.exercises.filter(e =>
-          e.name.toLowerCase().includes('swim') || e.name.toLowerCase().includes('technique')
-        );
-        const strengthExercises = triSession.strengthSession || [];
-
-        if (swimExercises.length > 0) {
-          sessions.push({
-            time: 'AM',
-            type: 'swim',
-            focus: 'Technique Swim',
-            duration: 45,
-            exercises: swimExercises,
-          });
-        }
-
-        if (strengthExercises.length > 0) {
-          sessions.push({
-            time: 'PM',
-            type: 'strength',
-            focus: 'Injury Prevention',
-            duration: 40,
-            exercises: strengthExercises,
-            notes: 'Triathlon-specific: hip stability, core, rotator cuff. NOT hypertrophy.',
-          });
-        }
-      } else if (sessionType.includes('Brick')) {
+      }
+      // PRIORITY 3: Brick workouts
+      else if (sessionType.includes('Brick')) {
         // Brick workout - keep as single session
         sessions.push({
           time: 'AM',
