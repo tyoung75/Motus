@@ -76,19 +76,6 @@ function AppContent() {
       if (profileResult.data && programResult.data) {
         setIsSetupComplete(true);
         setShowLanding(false);
-
-        // For existing users, show paywall if not subscribed
-        // Check localStorage flags for bypass
-        const hasBypass =
-          localStorage.getItem('motus_bypass_paywall') === 'true' ||
-          localStorage.getItem('motus_tylers_friend') === 'true';
-
-        if (!hasBypass) {
-          // Small delay to let subscription context load
-          setTimeout(() => {
-            setShowPaywall(true);
-          }, 500);
-        }
       } else {
         // Check if user has started setup before (visited the app)
         const hasVisited = localStorage.getItem('motus_has_visited');
@@ -104,6 +91,28 @@ function AppContent() {
       loadData();
     }
   }, [isAuthenticated, authLoading]);
+
+  // Check for referral code in URL (for new users coming from referral link)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    if (refCode) {
+      localStorage.setItem('motus_referral_code', refCode);
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  // Show paywall for existing users who aren't subscribed (after loading completes)
+  useEffect(() => {
+    if (!isLoading && !subscriptionLoading && isSetupComplete && !isSubscribed) {
+      // Small delay to let the UI render first
+      const timer = setTimeout(() => {
+        setShowPaywall(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, subscriptionLoading, isSetupComplete, isSubscribed]);
 
   // Wrapper functions to save to both local and cloud
   const setProfile = async (data) => {
@@ -290,17 +299,6 @@ function AppContent() {
       </div>
     );
   }
-
-  // Check for referral code in URL (for new users coming from referral link)
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const refCode = urlParams.get('ref');
-    if (refCode) {
-      localStorage.setItem('motus_referral_code', refCode);
-      // Clean URL
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
 
   // Get today's data
   const today = new Date().toISOString().split('T')[0];
