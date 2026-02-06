@@ -16,11 +16,11 @@ export function SubscriptionProvider({ children }) {
   const [referrals, setReferrals] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Check if paywall should be bypassed (dev mode or Tyler's friend)
+  // Check if paywall should be bypassed (explicit test mode or Tyler's friend)
+  // Note: Dev mode no longer auto-bypasses - must set localStorage explicitly
   const bypassPaywall =
     localStorage.getItem('motus_bypass_paywall') === 'true' ||
-    localStorage.getItem('motus_tylers_friend') === 'true' ||
-    import.meta.env.DEV === true;
+    localStorage.getItem('motus_tylers_friend') === 'true';
 
   // Determine if user has active subscription
   const isSubscribed = useCallback(() => {

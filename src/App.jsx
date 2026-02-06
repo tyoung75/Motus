@@ -76,6 +76,19 @@ function AppContent() {
       if (profileResult.data && programResult.data) {
         setIsSetupComplete(true);
         setShowLanding(false);
+
+        // For existing users, show paywall if not subscribed
+        // Check localStorage flags for bypass
+        const hasBypass =
+          localStorage.getItem('motus_bypass_paywall') === 'true' ||
+          localStorage.getItem('motus_tylers_friend') === 'true';
+
+        if (!hasBypass) {
+          // Small delay to let subscription context load
+          setTimeout(() => {
+            setShowPaywall(true);
+          }, 500);
+        }
       } else {
         // Check if user has started setup before (visited the app)
         const hasVisited = localStorage.getItem('motus_has_visited');
