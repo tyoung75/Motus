@@ -280,8 +280,8 @@ function SetupWizard({ onComplete }) {
     equipment: 'full',
     programStartDate: '', // When the program should begin
 
-    // Nutrition Goal
-    nutritionGoal: 'maintain',
+    // Nutrition Goal - default to recomp (recommended for most)
+    nutritionGoal: 'recomp',
 
     // Vacations
     vacations: [],
@@ -1289,10 +1289,13 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
           strengthGoals={safeFormData.strengthGoals}
           strengthGoalDate={safeFormData.strengthGoalDate}
           programStartDate={safeFormData.programStartDate}
+          nutritionGoal={safeFormData.nutritionGoal}
           experienceLevel={getExperienceLevel()}
+          bodyFatPercent={safeFormData.bodyFatPercent}
           onUpdateGoal={updateStrengthGoal}
           onUpdateDate={(value) => updateFormData('strengthGoalDate', value)}
           onUpdateStartDate={(value) => updateFormData('programStartDate', value)}
+          onUpdateNutrition={(value) => updateFormData('nutritionGoal', value)}
         />
 
         {strengthGoalError && (
@@ -1301,32 +1304,6 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
             <p className="text-sm text-gray-300 whitespace-pre-line">{strengthGoalError}</p>
           </div>
         )}
-
-        {/* Nutrition Goal */}
-        <div className="pt-6 border-t border-dark-600">
-          <h3 className="text-lg font-semibold text-white mb-4">🍎 Nutrition Goal</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { id: 'maintain', label: 'Maintain', desc: 'Keep current weight' },
-              { id: 'recomp', label: 'Recomp', desc: 'Lose fat, keep muscle' },
-              { id: 'lose', label: 'Lose Weight', desc: 'Calorie deficit' },
-              { id: 'gain', label: 'Gain Weight', desc: 'Calorie surplus' },
-            ].map((goal) => (
-              <button
-                key={goal.id}
-                onClick={() => updateFormData('nutritionGoal', goal.id)}
-                className={`p-3 rounded-lg border text-left ${
-                  safeFormData.nutritionGoal === goal.id
-                    ? 'bg-accent-primary/20 border-accent-primary'
-                    : 'bg-dark-700 border-dark-500'
-                }`}
-              >
-                <span className="text-white font-medium">{goal.label}</span>
-                <p className="text-xs text-gray-400">{goal.desc}</p>
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Secondary Cardio Option */}
         <div className="pt-6 border-t border-dark-600">
