@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef, Component } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Component } from 'react';
 import { ChevronRight, ChevronLeft, User, Target, Dumbbell, Scale, Sparkles, Calendar, Plane, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../shared';
 import { calculateBMR, calculateTDEE, calculateMacros } from '../../utils/calculations';
 import { useAuth } from '../../context/AuthContext';
 import { generateProgram as generateProgramLocal } from '../../utils/programGenerator';
+import { StrengthGoalsForm } from './StrengthGoalsForm';
 
 // Error Boundary to catch rendering errors
 class SetupErrorBoundary extends Component {
@@ -295,14 +296,6 @@ function SetupWizard({ onComplete }) {
 
   const handleNext = () => {
     if (currentStep < 6) {
-      console.log('handleNext: transitioning from step', currentStep, 'to step', currentStep + 1);
-      console.log('Current formData:', {
-        programType: formData.programType,
-        programSubtype: formData.programSubtype,
-        strengthGoalsExists: !!formData.strengthGoals,
-        strengthGoalsIsArray: Array.isArray(formData.strengthGoals),
-        strengthGoalsLength: formData.strengthGoals?.length,
-      });
       setCurrentStep((prev) => prev + 1);
     }
   };
@@ -644,27 +637,14 @@ function SetupWizard({ onComplete }) {
         {currentStep === 3 && (
           <StepPrimaryGoal formData={formData} updateFormData={updateFormData} />
         )}
-        {currentStep === 4 && (() => {
-          console.log('Rendering step 4 (StepGoalDetails)');
-          try {
-            return (
-              <StepGoalDetails
-                formData={formData}
-                updateFormData={updateFormData}
-                updateStrengthGoal={updateStrengthGoal}
-                strengthGoalError={strengthGoalError}
-              />
-            );
-          } catch (error) {
-            console.error('Error rendering StepGoalDetails:', error);
-            return (
-              <div className="max-w-md mx-auto p-6 text-center">
-                <p className="text-red-500 mb-4">Error loading goal details.</p>
-                <p className="text-gray-400 text-sm">{error?.message || 'Unknown error'}</p>
-              </div>
-            );
-          }
-        })()}
+        {currentStep === 4 && (
+          <StepGoalDetails
+            formData={formData}
+            updateFormData={updateFormData}
+            updateStrengthGoal={updateStrengthGoal}
+            strengthGoalError={strengthGoalError}
+          />
+        )}
         {currentStep === 5 && (
           <StepVacations
             formData={formData}
@@ -1256,41 +1236,78 @@ function StepPrimaryGoal({ formData, updateFormData }) {
 }
 
 /// Step 4: Goal Details
-function StepGoalDetails({ formData = {}, updateFormData, updateStrengthGoal, strengthGoalError }) {
-  // Debug logging
-  console.log('StepGoalDetails rendering with:', {
-    programType: formData?.programType,
-    programSubtype: formData?.programSubtype,
-    hasStrengthGoals: !!formData?.strengthGoals,
-    strengthGoalsLength: formData?.strengthGoals?.length,
-  });
+function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengthGoalError }) {
+  // Simple null check
+  const safeFormData = formData || {};
+  const programType = safeFormData.programType || '';
+  const programSubtype = safeFormData.programSubtype || '';
 
-  // Defensive defaults - ensure formData is an object
-  if (!formData || typeof formData !== 'object') {
-    console.error('StepGoalDetails: formData is invalid', formData);
+  // Render strength goals using dedicated component
+  if (programType === 'strength') {
     return (
-      <div className="max-w-md mx-auto p-6">
-        <p className="text-red-500">Error loading goal details. Please go back and try again.</p>
+      <div className="max-w-md mx-auto space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-white mb-2">Goal Details</h2>
+          <p className="text-gray-400">Help us tailor your program to your specific targets.</p>
+        </div>
+
+        <StrengthGoalsForm
+          strengthGoals={safeFormData.strengthGoals}
+          strengthGoalDate={safeFormData.strengthGoalDate}
+          onUpdateGoal={updateStrengthGoal}
+          onUpdateDate={(value) => updateFormData('strengthGoalDate', value)}
+        />
+
+        {strengthGoalError && (
+          <div className="mt-4 p-4 bg-red-900/20 border border-red-700 rounded-xl">
+            <h4 className="text-red-400 font-semibold mb-2">Unrealistic Goals Detected</h4>
+            <p className="text-sm text-gray-300 whitespace-pre-line">{strengthGoalError}</p>
+          </div>
+        )}
+
+        {/* Program Start Date */}
+        <div className="pt-6 border-t border-dark-600">
+          <h3 className="text-lg font-semibold text-white mb-4">📅 Program Start Date</h3>
+          <input
+            type="date"
+            value={safeFormData.programStartDate || ''}
+            min={getTodayString()}
+            onChange={(e) => updateFormData('programStartDate', e.target.value)}
+            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white"
+          />
+          <p className="text-xs text-gray-500 mt-2">Leave blank to start today</p>
+        </div>
+
+        {/* Nutrition Goal */}
+        <div className="pt-6 border-t border-dark-600">
+          <h3 className="text-lg font-semibold text-white mb-4">🍎 Nutrition Goal</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { id: 'maintain', label: 'Maintain', desc: 'Keep current weight' },
+              { id: 'recomp', label: 'Recomp', desc: 'Lose fat, keep muscle' },
+              { id: 'lose', label: 'Lose Weight', desc: 'Calorie deficit' },
+              { id: 'gain', label: 'Gain Weight', desc: 'Calorie surplus' },
+            ].map((goal) => (
+              <button
+                key={goal.id}
+                onClick={() => updateFormData('nutritionGoal', goal.id)}
+                className={`p-3 rounded-lg border text-left ${
+                  safeFormData.nutritionGoal === goal.id
+                    ? 'bg-accent-primary/20 border-accent-primary'
+                    : 'bg-dark-700 border-dark-500'
+                }`}
+              >
+                <span className="text-white font-medium">{goal.label}</span>
+                <p className="text-xs text-gray-400">{goal.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
-  const programType = formData.programType || '';
-  const programSubtype = formData.programSubtype || '';
-
-  // Safe updateStrengthGoal wrapper
-  const safeUpdateStrengthGoal = (exerciseId, field, value) => {
-    try {
-      if (typeof updateStrengthGoal === 'function') {
-        updateStrengthGoal(exerciseId, field, value);
-      } else {
-        console.error('updateStrengthGoal is not a function');
-      }
-    } catch (error) {
-      console.error('Error in safeUpdateStrengthGoal:', error);
-    }
-  };
-
+  // Render other goal types using the original renderGoalInputs
   const renderGoalInputs = () => {
     // Endurance goals
     if (programType === 'endurance') {
@@ -1601,108 +1618,6 @@ function StepGoalDetails({ formData = {}, updateFormData, updateStrengthGoal, st
               className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
             />
           </div>
-        </div>
-      );
-    }
-
-    // Strength goals - 5 exercises
-    if (programType === 'strength') {
-      console.log('Rendering strength goals section');
-
-      // Very defensive check for strengthGoals
-      let strengthGoals = [];
-      try {
-        if (Array.isArray(formData.strengthGoals) && formData.strengthGoals.length > 0) {
-          strengthGoals = formData.strengthGoals;
-        } else if (typeof STRENGTH_EXERCISES !== 'undefined' && Array.isArray(STRENGTH_EXERCISES)) {
-          strengthGoals = STRENGTH_EXERCISES.map(ex => ({
-            id: ex?.id || 'unknown',
-            label: ex?.label || 'Exercise',
-            current: '',
-            target: '',
-          }));
-        } else {
-          // Hardcoded fallback
-          strengthGoals = [
-            { id: 'squat', label: 'Back Squat', current: '', target: '' },
-            { id: 'bench', label: 'Bench Press', current: '', target: '' },
-            { id: 'deadlift', label: 'Deadlift', current: '', target: '' },
-            { id: 'ohp', label: 'Overhead Press', current: '', target: '' },
-            { id: 'row', label: 'Barbell Row', current: '', target: '' },
-          ];
-        }
-      } catch (error) {
-        console.error('Error creating strengthGoals:', error);
-        strengthGoals = [
-          { id: 'squat', label: 'Back Squat', current: '', target: '' },
-          { id: 'bench', label: 'Bench Press', current: '', target: '' },
-          { id: 'deadlift', label: 'Deadlift', current: '', target: '' },
-        ];
-      }
-
-      console.log('strengthGoals prepared:', strengthGoals.length, 'exercises');
-
-      return (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-white">🏋️ Strength Goals</h3>
-          <p className="text-sm text-gray-400">Enter your current and target weights for main lifts (in lbs)</p>
-
-          {/* Goal Date - required for calculating realistic progression */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Goal Date
-            </label>
-            <input
-              type="date"
-              value={formData.strengthGoalDate || ''}
-              min={getTodayString()}
-              onChange={(e) => updateFormData('strengthGoalDate', e.target.value)}
-              className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white"
-            />
-            <p className="text-xs text-text-muted mt-1">
-              When do you want to hit these numbers? (Minimum 8-12 weeks recommended)
-            </p>
-          </div>
-
-          {strengthGoals.map((exercise, index) => {
-            // Defensive check for each exercise
-            if (!exercise || typeof exercise !== 'object') {
-              console.error('Invalid exercise at index', index, exercise);
-              return null;
-            }
-            const exerciseId = exercise.id || `exercise-${index}`;
-            const exerciseLabel = exercise.label || `Exercise ${index + 1}`;
-            const currentValue = exercise.current || '';
-            const targetValue = exercise.target || '';
-
-            return (
-              <div key={exerciseId} className="p-3 bg-dark-700 rounded-lg">
-                <span className="text-white font-medium block mb-2">{exerciseLabel}</span>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <input
-                      type="number"
-                      value={currentValue}
-                      onChange={(e) => safeUpdateStrengthGoal(exerciseId, 'current', e.target.value)}
-                      placeholder="Current 1RM"
-                      className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm placeholder-gray-500"
-                    />
-                    <span className="text-xs text-gray-500">Current</span>
-                  </div>
-                  <div>
-                    <input
-                      type="number"
-                      value={targetValue}
-                      onChange={(e) => safeUpdateStrengthGoal(exerciseId, 'target', e.target.value)}
-                      placeholder="Target 1RM"
-                      className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm placeholder-gray-500"
-                    />
-                    <span className="text-xs text-gray-500">Target</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
         </div>
       );
     }
