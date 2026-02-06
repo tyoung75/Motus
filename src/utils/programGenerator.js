@@ -963,215 +963,466 @@ function distributeWorkoutDays(daysPerWeek) {
 
 // ============ EXERCISE GENERATORS ============
 
+// ============ POWERBUILDING/STRENGTH EXERCISE DATABASE ============
+// Comprehensive exercise library with % of 1RM recommendations
+
+const STRENGTH_EXERCISE_DB = {
+  // Main compound lifts with % of 1RM by phase
+  squat: {
+    main: {
+      name: 'Back Squat',
+      percentages: {
+        Base: { min: 70, max: 80, reps: '5-8', sets: 4 },
+        Build: { min: 80, max: 87.5, reps: '3-5', sets: 5 },
+        Peak: { min: 87.5, max: 95, reps: '1-3', sets: 5 },
+        Deload: { min: 50, max: 60, reps: '5-8', sets: 3 },
+      },
+      rest: '3-4 min',
+      notes: 'Break at hips, knees track over toes, drive through heels',
+    },
+    variations: [
+      { name: 'Pause Squat', percent: 0.80, reps: '3-5', sets: 3, notes: '2-3 sec pause in hole' },
+      { name: 'Front Squat', percent: 0.75, reps: '4-6', sets: 3, notes: 'Upright torso, elbows high' },
+      { name: 'Box Squat', percent: 0.85, reps: '3-5', sets: 3, notes: 'Pause on box, explode up' },
+    ],
+    accessories: [
+      { name: 'Leg Press', reps: '8-12', sets: 3, notes: 'Control descent, full ROM', isBodyweight: false },
+      { name: 'Walking Lunges', reps: '10-12 each', sets: 3, notes: 'Long stride, upright torso', isBodyweight: true },
+      { name: 'Leg Extensions', reps: '12-15', sets: 3, notes: 'Squeeze at top, slow negative', isBodyweight: false },
+      { name: 'Leg Curls', reps: '10-12', sets: 3, notes: 'Squeeze hamstrings at top', isBodyweight: false },
+      { name: 'Bulgarian Split Squat', reps: '8-10 each', sets: 3, notes: 'Vertical shin on front leg', isBodyweight: true },
+      { name: 'Goblet Squat', reps: '10-12', sets: 3, notes: 'Elbows inside knees at bottom', isBodyweight: false },
+    ],
+  },
+  bench: {
+    main: {
+      name: 'Bench Press',
+      percentages: {
+        Base: { min: 70, max: 80, reps: '5-8', sets: 4 },
+        Build: { min: 80, max: 87.5, reps: '3-5', sets: 5 },
+        Peak: { min: 87.5, max: 95, reps: '1-3', sets: 5 },
+        Deload: { min: 50, max: 60, reps: '5-8', sets: 3 },
+      },
+      rest: '3-4 min',
+      notes: 'Retract scapula, arch back, leg drive, control descent',
+    },
+    variations: [
+      { name: 'Close-Grip Bench', percent: 0.85, reps: '4-6', sets: 3, notes: 'Elbows tucked, tricep focus' },
+      { name: 'Paused Bench Press', percent: 0.80, reps: '3-5', sets: 3, notes: '2 sec pause on chest' },
+      { name: 'Incline Bench Press', percent: 0.75, reps: '6-8', sets: 3, notes: '30-45 degree incline' },
+      { name: 'Floor Press', percent: 0.85, reps: '4-6', sets: 3, notes: 'Pause at floor, lockout strength' },
+    ],
+    accessories: [
+      { name: 'Dumbbell Bench Press', reps: '8-12', sets: 3, notes: 'Full ROM, squeeze at top', isBodyweight: false },
+      { name: 'Dumbbell Fly', reps: '10-12', sets: 3, notes: 'Slight bend in elbows, stretch at bottom', isBodyweight: false },
+      { name: 'Tricep Pushdowns', reps: '12-15', sets: 3, notes: 'Lock elbows, squeeze triceps', isBodyweight: false },
+      { name: 'Skull Crushers', reps: '10-12', sets: 3, notes: 'Keep elbows pointed up', isBodyweight: false },
+      { name: 'Dips', reps: '8-12', sets: 3, notes: 'Lean forward for chest, upright for triceps', isBodyweight: true },
+      { name: 'Overhead Tricep Extension', reps: '10-12', sets: 3, notes: 'Full stretch at bottom', isBodyweight: false },
+    ],
+  },
+  deadlift: {
+    main: {
+      name: 'Deadlift',
+      percentages: {
+        Base: { min: 70, max: 80, reps: '4-6', sets: 3 },
+        Build: { min: 80, max: 87.5, reps: '2-4', sets: 4 },
+        Peak: { min: 87.5, max: 95, reps: '1-3', sets: 4 },
+        Deload: { min: 50, max: 60, reps: '4-6', sets: 2 },
+      },
+      rest: '4-5 min',
+      notes: 'Brace core, chest up, hinge at hips, bar close to body',
+    },
+    variations: [
+      { name: 'Deficit Deadlift', percent: 0.80, reps: '3-5', sets: 3, notes: '2-3 inch deficit, speed off floor' },
+      { name: 'Romanian Deadlift', percent: 0.65, reps: '8-10', sets: 3, notes: 'Hamstring stretch, slight knee bend' },
+      { name: 'Paused Deadlift', percent: 0.75, reps: '2-4', sets: 3, notes: '2 sec pause at knee height' },
+      { name: 'Block Pull', percent: 0.90, reps: '2-4', sets: 3, notes: 'Lockout strength, above knee' },
+    ],
+    accessories: [
+      { name: 'Barbell Row', reps: '6-10', sets: 4, notes: 'Pull to lower chest, squeeze lats', isBodyweight: false },
+      { name: 'Good Mornings', reps: '8-10', sets: 3, notes: 'Hip hinge, hamstring stretch', isBodyweight: false },
+      { name: 'Back Extensions', reps: '12-15', sets: 3, notes: 'Squeeze glutes at top', isBodyweight: true },
+      { name: 'Pull-ups', reps: '6-10', sets: 4, notes: 'Full ROM, dead hang to chin over bar', isBodyweight: true },
+      { name: 'Face Pulls', reps: '15-20', sets: 3, notes: 'External rotation, rear delt focus', isBodyweight: false },
+      { name: 'Lat Pulldown', reps: '10-12', sets: 3, notes: 'Drive elbows down, squeeze lats', isBodyweight: false },
+    ],
+  },
+  ohp: {
+    main: {
+      name: 'Overhead Press',
+      percentages: {
+        Base: { min: 70, max: 80, reps: '5-8', sets: 4 },
+        Build: { min: 80, max: 87.5, reps: '3-5', sets: 4 },
+        Peak: { min: 85, max: 92.5, reps: '2-4', sets: 4 },
+        Deload: { min: 50, max: 60, reps: '6-8', sets: 3 },
+      },
+      rest: '2-3 min',
+      notes: 'Squeeze glutes, brace core, press straight up, head through at top',
+    },
+    variations: [
+      { name: 'Push Press', percent: 1.10, reps: '3-5', sets: 3, notes: 'Small dip, explosive drive' },
+      { name: 'Z Press', percent: 0.70, reps: '6-8', sets: 3, notes: 'Seated on floor, no leg drive' },
+      { name: 'Seated Dumbbell Press', percent: 0.80, reps: '8-10', sets: 3, notes: 'Neutral grip option' },
+    ],
+    accessories: [
+      { name: 'Lateral Raises', reps: '12-15', sets: 3, notes: 'Lead with elbows, control descent', isBodyweight: false },
+      { name: 'Rear Delt Fly', reps: '12-15', sets: 3, notes: 'Squeeze shoulder blades together', isBodyweight: false },
+      { name: 'Upright Rows', reps: '10-12', sets: 3, notes: 'Elbows above wrists at top', isBodyweight: false },
+      { name: 'Front Raises', reps: '10-12', sets: 3, notes: 'Thumbs up, raise to eye level', isBodyweight: false },
+      { name: 'Arnold Press', reps: '8-12', sets: 3, notes: 'Rotate palms during press', isBodyweight: false },
+    ],
+  },
+};
+
+// Double progression tracking: reps first, then weight
+function getDoubleProgression(baseReps, weekInCycle, phase) {
+  // In a 4-week cycle:
+  // Week 1: Base reps (e.g., 8-10)
+  // Week 2: +1 rep (9-11)
+  // Week 3: +2 reps (10-12)
+  // Week 4: Deload or increase weight and reset to base reps
+  if (phase === 'Deload') return baseReps;
+
+  const [minRep, maxRep] = baseReps.split('-').map(Number);
+  const repBonus = Math.min(weekInCycle - 1, 2); // Max +2 reps
+  return `${minRep + repBonus}-${maxRep + repBonus}`;
+}
+
+// Calculate working weight from 1RM based on phase percentages
+function calculateWorkingWeight(oneRM, phase, weekInCycle, exerciseData) {
+  if (!oneRM) return null;
+
+  const percentages = exerciseData.percentages[phase] || exerciseData.percentages.Base;
+  const { min, max } = percentages;
+
+  // Progress within phase: Week 1 = min%, Week 2-3 = middle%, Week 4 (or pre-deload) = max%
+  let targetPercent;
+  if (weekInCycle === 1) targetPercent = min;
+  else if (weekInCycle === 4) targetPercent = max;
+  else targetPercent = (min + max) / 2;
+
+  const weight = Math.round((oneRM * targetPercent / 100) / 5) * 5; // Round to nearest 5
+  return weight;
+}
+
 function generateStrengthExercises(focus, phase, isDeload, athleteLevel, weekNumber, strengthBaselines = []) {
   const exercises = [];
-  // Defensive: ensure athleteLevel has required properties
   const level = athleteLevel?.level || 'intermediate';
   const multiplier = athleteLevel?.multiplier || 1.0;
 
-  const volumeBase = isDeload ? 0.5 : (phase === 'Build' ? 1.1 : 1.0);
-  const volumeMultiplier = volumeBase * multiplier;
-  const rpeBase = isDeload ? 5 : (level === 'elite' ? 9 : level === 'advanced' ? 8.5 : level === 'intermediate' ? 8 : 7);
+  // Week in current mesocycle (1-4)
+  const weekInCycle = ((weekNumber - 1) % 4) + 1;
+  const currentPhase = isDeload ? 'Deload' : phase;
 
-  // Progressive overload tracking
-  const weekProgression = Math.floor((weekNumber - 1) / 4); // Progress every 4 weeks
-
-  const getRepRange = (baseReps) => {
-    if (level === 'elite') return baseReps.replace(/(\d+)-(\d+)/, (_, min, max) => `${Math.max(1, parseInt(min)-2)}-${parseInt(max)-2}`);
-    if (level === 'advanced') return baseReps.replace(/(\d+)-(\d+)/, (_, min, max) => `${Math.max(1, parseInt(min)-1)}-${parseInt(max)-1}`);
-    return baseReps;
-  };
+  // Volume scaling
+  const volumeMultiplier = isDeload ? 0.6 : (phase === 'Build' ? 1.1 : 1.0) * multiplier;
 
   // Helper to get baseline for a lift
-  const getBaseline = (exerciseName) => {
-    const mapping = {
-      'Back Squat': 'squat',
-      'Bench Press': 'bench',
-      'Deadlift': 'deadlift',
-      'Overhead Press': 'ohp',
-      'Barbell Row': 'row',
-    };
-    const id = mapping[exerciseName];
-    return strengthBaselines.find(b => b.id === id);
+  const getBaseline = (liftId) => {
+    const baseline = strengthBaselines.find(b => b.id === liftId);
+    return baseline ? {
+      current1RM: parseFloat(baseline.current1RM) || parseFloat(baseline.workingWeight) || null,
+      target1RM: parseFloat(baseline.target1RM) || null,
+    } : null;
   };
 
-  // Calculate working weight from 1RM
-  const getWorkingWeight = (oneRM, reps, rpeTarget) => {
-    if (!oneRM) return null;
-    // Epley formula inverse + RPE adjustment
-    const repMax = parseFloat(oneRM);
-    const repsInRange = parseInt(reps.split('-')[1]) || parseInt(reps);
-    const percentOf1RM = 1 / (1 + 0.0333 * repsInRange);
-    const rpeAdjust = (10 - rpeTarget) * 0.03; // ~3% per RPE below 10
-    return Math.round((repMax * percentOf1RM * (1 - rpeAdjust)) / 5) * 5; // Round to nearest 5
-  };
-
+  // ============ SQUAT DAY ============
   if (focus.includes('legs') || focus.includes('Squat')) {
-    const baseline = getBaseline('Back Squat');
-    const reps = phase === 'Peak' ? getRepRange('1-3') : phase === 'Build' ? getRepRange('3-5') : getRepRange('5-8');
-    const workingWeight = getWorkingWeight(baseline?.current, reps, rpeBase);
+    const baseline = getBaseline('squat');
+    const exerciseData = STRENGTH_EXERCISE_DB.squat;
+    const phaseConfig = exerciseData.main.percentages[currentPhase];
+    const workingWeight = calculateWorkingWeight(baseline?.current1RM, currentPhase, weekInCycle, exerciseData.main);
+    const percentUsed = workingWeight && baseline?.current1RM ? Math.round(workingWeight / baseline.current1RM * 100) : null;
 
+    // Main lift
     exercises.push({
-      name: 'Back Squat',
-      sets: Math.round(5 * volumeMultiplier),
-      reps,
-      rpe: rpeBase,
-      rest: level === 'elite' ? '4-5 min' : '3-4 min',
-      notes: level === 'elite' ? 'Competition depth, pause at bottom' : 'Control descent, drive through heels',
-      startingWeight: workingWeight ? `~${workingWeight}lbs` : null,
-      current1RM: baseline?.current ? `${baseline.current}lbs` : null,
-      target1RM: baseline?.target ? `${baseline.target}lbs` : null,
-      progression: baseline?.current
-        ? `Week ${weekNumber}: Start ~${workingWeight}lbs (${Math.round(workingWeight / baseline.current * 100)}% of 1RM). Target: ${baseline.target}lbs. Add 5lbs when all reps hit at RPE ${rpeBase}`
-        : `Week ${weekNumber}: +${weekProgression * 5}lbs from starting weight. Add 5lbs when all reps hit at RPE ${rpeBase}`,
+      name: exerciseData.main.name,
+      sets: Math.round(phaseConfig.sets * volumeMultiplier),
+      reps: getDoubleProgression(phaseConfig.reps, weekInCycle, currentPhase),
+      rpe: isDeload ? 6 : (level === 'elite' ? 8.5 : 8),
+      rest: exerciseData.main.rest,
+      notes: exerciseData.main.notes,
+      startingWeight: workingWeight ? `${workingWeight} lbs (${percentUsed}% of 1RM)` : 'Start light, find working weight',
+      current1RM: baseline?.current1RM ? `${baseline.current1RM} lbs` : null,
+      target1RM: baseline?.target1RM ? `${baseline.target1RM} lbs` : null,
+      isMainLift: true,
+      progression: `Double progression: Hit ${phaseConfig.reps.split('-')[1]} reps on all sets → add 5 lbs next session`,
     });
 
-    if (level === 'advanced' || level === 'elite') {
+    // Variation (not on deload)
+    if (!isDeload) {
+      const variation = exerciseData.variations[phase === 'Peak' ? 2 : 0]; // Box squat for peak, pause squat otherwise
+      const variationWeight = workingWeight ? Math.round(workingWeight * variation.percent / 5) * 5 : null;
       exercises.push({
-        name: 'Pause Squat',
-        sets: Math.round(3 * volumeMultiplier),
-        reps: '3-5',
-        rpe: rpeBase - 1,
-        rest: '3-4 min',
-        notes: '2-3 second pause in the hole',
-        progression: `Accessory: increase when main squat increases`,
-      });
-    }
-  }
-
-  if (focus.includes('chest') || focus.includes('Bench')) {
-    const baseline = getBaseline('Bench Press');
-    const reps = phase === 'Peak' ? getRepRange('1-3') : phase === 'Build' ? getRepRange('3-5') : getRepRange('5-8');
-    const workingWeight = getWorkingWeight(baseline?.current, reps, rpeBase);
-
-    exercises.push({
-      name: 'Bench Press',
-      sets: Math.round(5 * volumeMultiplier),
-      reps,
-      rpe: rpeBase,
-      rest: level === 'elite' ? '4-5 min' : '3-4 min',
-      notes: level === 'elite' ? 'Competition pause, leg drive, tight arch' : 'Arch back, retract scapula',
-      startingWeight: workingWeight ? `~${workingWeight}lbs` : null,
-      current1RM: baseline?.current ? `${baseline.current}lbs` : null,
-      target1RM: baseline?.target ? `${baseline.target}lbs` : null,
-      progression: baseline?.current
-        ? `Week ${weekNumber}: Start ~${workingWeight}lbs (${Math.round(workingWeight / baseline.current * 100)}% of 1RM). Target: ${baseline.target}lbs. Add 2.5lbs when all reps hit at RPE ${rpeBase}`
-        : `Week ${weekNumber}: +${weekProgression * 2.5}lbs from starting weight. Add 2.5lbs when all reps hit at RPE ${rpeBase}`,
-    });
-
-    if (level === 'advanced' || level === 'elite') {
-      exercises.push({
-        name: 'Close-Grip Bench',
-        sets: Math.round(4 * volumeMultiplier),
-        reps: '4-6',
-        rpe: rpeBase - 1,
+        name: variation.name,
+        sets: Math.round(variation.sets * volumeMultiplier),
+        reps: variation.reps,
+        rpe: 7,
         rest: '3 min',
-        notes: 'Tricep focus, elbows tucked',
-        progression: `Keep ~70% of competition bench`,
+        notes: variation.notes,
+        startingWeight: variationWeight ? `${variationWeight} lbs (~${Math.round(variation.percent * 100)}% of working weight)` : null,
+        isVariation: true,
+        progression: 'Follow main lift progression',
       });
     }
-  }
 
-  if (focus.includes('posterior') || focus.includes('Deadlift')) {
-    const baseline = getBaseline('Deadlift');
-    const reps = phase === 'Peak' ? getRepRange('1-2') : phase === 'Build' ? getRepRange('2-4') : getRepRange('4-6');
-    const workingWeight = getWorkingWeight(baseline?.current, reps, rpeBase);
-
-    exercises.push({
-      name: 'Deadlift',
-      sets: Math.round(4 * volumeMultiplier),
-      reps,
-      rpe: rpeBase,
-      rest: level === 'elite' ? '5-6 min' : '4-5 min',
-      notes: level === 'elite' ? 'Competition setup, maximal brace' : 'Brace core, hinge at hips',
-      startingWeight: workingWeight ? `~${workingWeight}lbs` : null,
-      current1RM: baseline?.current ? `${baseline.current}lbs` : null,
-      target1RM: baseline?.target ? `${baseline.target}lbs` : null,
-      progression: baseline?.current
-        ? `Week ${weekNumber}: Start ~${workingWeight}lbs (${Math.round(workingWeight / baseline.current * 100)}% of 1RM). Target: ${baseline.target}lbs. Add 5-10lbs when all reps hit at RPE ${rpeBase}`
-        : `Week ${weekNumber}: +${weekProgression * 10}lbs from starting weight. Add 5-10lbs when all reps hit at RPE ${rpeBase}`,
-    });
-
-    if (level === 'advanced' || level === 'elite') {
+    // Accessories (2-3 based on level)
+    const numAccessories = isDeload ? 1 : (level === 'beginner' ? 2 : level === 'intermediate' ? 3 : 4);
+    const accessoryOptions = exerciseData.accessories.slice(0, numAccessories);
+    accessoryOptions.forEach(acc => {
       exercises.push({
-        name: 'Deficit Deadlift',
-        sets: Math.round(3 * volumeMultiplier),
-        reps: '3-5',
-        rpe: rpeBase - 1,
-        rest: '4 min',
-        notes: '2-3 inch deficit, focus on speed off floor',
-        progression: `Keep at 80-85% of comp deadlift`,
+        name: acc.name,
+        sets: Math.round(acc.sets * volumeMultiplier),
+        reps: getDoubleProgression(acc.reps, weekInCycle, currentPhase),
+        rpe: 7,
+        rest: '90s',
+        notes: acc.notes,
+        isAccessory: true,
+        progression: `Double progression: ${acc.reps.split('-')[0]}→${acc.reps.split('-')[1]} reps, then add weight`,
+      });
+    });
+  }
+
+  // ============ BENCH DAY ============
+  if (focus.includes('chest') || focus.includes('Bench')) {
+    const baseline = getBaseline('bench');
+    const exerciseData = STRENGTH_EXERCISE_DB.bench;
+    const phaseConfig = exerciseData.main.percentages[currentPhase];
+    const workingWeight = calculateWorkingWeight(baseline?.current1RM, currentPhase, weekInCycle, exerciseData.main);
+    const percentUsed = workingWeight && baseline?.current1RM ? Math.round(workingWeight / baseline.current1RM * 100) : null;
+
+    // Main lift
+    exercises.push({
+      name: exerciseData.main.name,
+      sets: Math.round(phaseConfig.sets * volumeMultiplier),
+      reps: getDoubleProgression(phaseConfig.reps, weekInCycle, currentPhase),
+      rpe: isDeload ? 6 : (level === 'elite' ? 8.5 : 8),
+      rest: exerciseData.main.rest,
+      notes: exerciseData.main.notes,
+      startingWeight: workingWeight ? `${workingWeight} lbs (${percentUsed}% of 1RM)` : 'Start light, find working weight',
+      current1RM: baseline?.current1RM ? `${baseline.current1RM} lbs` : null,
+      target1RM: baseline?.target1RM ? `${baseline.target1RM} lbs` : null,
+      isMainLift: true,
+      progression: `Double progression: Hit ${phaseConfig.reps.split('-')[1]} reps on all sets → add 2.5 lbs next session`,
+    });
+
+    // Variation
+    if (!isDeload) {
+      const variation = phase === 'Peak' ? exerciseData.variations[3] : exerciseData.variations[0]; // Floor press for peak
+      const variationWeight = workingWeight ? Math.round(workingWeight * variation.percent / 5) * 5 : null;
+      exercises.push({
+        name: variation.name,
+        sets: Math.round(variation.sets * volumeMultiplier),
+        reps: variation.reps,
+        rpe: 7,
+        rest: '2-3 min',
+        notes: variation.notes,
+        startingWeight: variationWeight ? `${variationWeight} lbs` : null,
+        isVariation: true,
+        progression: 'Follow main lift progression',
       });
     }
+
+    // Accessories
+    const numAccessories = isDeload ? 1 : (level === 'beginner' ? 2 : level === 'intermediate' ? 3 : 4);
+    const accessoryOptions = exerciseData.accessories.slice(0, numAccessories);
+    accessoryOptions.forEach(acc => {
+      exercises.push({
+        name: acc.name,
+        sets: Math.round(acc.sets * volumeMultiplier),
+        reps: getDoubleProgression(acc.reps, weekInCycle, currentPhase),
+        rpe: 7,
+        rest: '90s',
+        notes: acc.notes,
+        isAccessory: true,
+        progression: 'Double progression: Add reps first, then weight',
+      });
+    });
   }
 
+  // ============ DEADLIFT DAY ============
+  if (focus.includes('posterior') || focus.includes('Deadlift')) {
+    const baseline = getBaseline('deadlift');
+    const exerciseData = STRENGTH_EXERCISE_DB.deadlift;
+    const phaseConfig = exerciseData.main.percentages[currentPhase];
+    const workingWeight = calculateWorkingWeight(baseline?.current1RM, currentPhase, weekInCycle, exerciseData.main);
+    const percentUsed = workingWeight && baseline?.current1RM ? Math.round(workingWeight / baseline.current1RM * 100) : null;
+
+    // Main lift
+    exercises.push({
+      name: exerciseData.main.name,
+      sets: Math.round(phaseConfig.sets * volumeMultiplier),
+      reps: getDoubleProgression(phaseConfig.reps, weekInCycle, currentPhase),
+      rpe: isDeload ? 6 : (level === 'elite' ? 8.5 : 8),
+      rest: exerciseData.main.rest,
+      notes: exerciseData.main.notes,
+      startingWeight: workingWeight ? `${workingWeight} lbs (${percentUsed}% of 1RM)` : 'Start light, find working weight',
+      current1RM: baseline?.current1RM ? `${baseline.current1RM} lbs` : null,
+      target1RM: baseline?.target1RM ? `${baseline.target1RM} lbs` : null,
+      isMainLift: true,
+      progression: `Double progression: Hit ${phaseConfig.reps.split('-')[1]} reps on all sets → add 5-10 lbs next session`,
+    });
+
+    // Variation
+    if (!isDeload) {
+      const variation = phase === 'Peak' ? exerciseData.variations[3] : exerciseData.variations[0]; // Block pull for peak
+      const variationWeight = workingWeight ? Math.round(workingWeight * variation.percent / 5) * 5 : null;
+      exercises.push({
+        name: variation.name,
+        sets: Math.round(variation.sets * volumeMultiplier),
+        reps: variation.reps,
+        rpe: 7,
+        rest: '3-4 min',
+        notes: variation.notes,
+        startingWeight: variationWeight ? `${variationWeight} lbs` : null,
+        isVariation: true,
+        progression: 'Follow main lift progression',
+      });
+    }
+
+    // Accessories
+    const numAccessories = isDeload ? 1 : (level === 'beginner' ? 2 : level === 'intermediate' ? 3 : 4);
+    const accessoryOptions = exerciseData.accessories.slice(0, numAccessories);
+    accessoryOptions.forEach(acc => {
+      exercises.push({
+        name: acc.name,
+        sets: Math.round(acc.sets * volumeMultiplier),
+        reps: getDoubleProgression(acc.reps, weekInCycle, currentPhase),
+        rpe: 7,
+        rest: '90s-2 min',
+        notes: acc.notes,
+        isAccessory: true,
+        progression: 'Double progression: Add reps first, then weight',
+      });
+    });
+  }
+
+  // ============ OHP / SHOULDERS DAY ============
   if (focus.includes('shoulders') || focus.includes('OHP')) {
+    const baseline = getBaseline('ohp');
+    const exerciseData = STRENGTH_EXERCISE_DB.ohp;
+    const phaseConfig = exerciseData.main.percentages[currentPhase];
+    const workingWeight = calculateWorkingWeight(baseline?.current1RM, currentPhase, weekInCycle, exerciseData.main);
+    const percentUsed = workingWeight && baseline?.current1RM ? Math.round(workingWeight / baseline.current1RM * 100) : null;
+
+    // Main lift
     exercises.push({
-      name: 'Overhead Press',
-      sets: Math.round(4 * volumeMultiplier),
-      reps: phase === 'Peak' ? getRepRange('3-5') : getRepRange('5-8'),
-      rpe: rpeBase,
-      rest: '2-3 min',
-      notes: 'Squeeze glutes, press straight up',
-      progression: `Week ${weekNumber}: +${weekProgression * 2.5}lbs. Add 2.5lbs when all reps complete`,
+      name: exerciseData.main.name,
+      sets: Math.round(phaseConfig.sets * volumeMultiplier),
+      reps: getDoubleProgression(phaseConfig.reps, weekInCycle, currentPhase),
+      rpe: isDeload ? 6 : (level === 'elite' ? 8.5 : 8),
+      rest: exerciseData.main.rest,
+      notes: exerciseData.main.notes,
+      startingWeight: workingWeight ? `${workingWeight} lbs (${percentUsed}% of 1RM)` : 'Start light, find working weight',
+      current1RM: baseline?.current1RM ? `${baseline.current1RM} lbs` : null,
+      target1RM: baseline?.target1RM ? `${baseline.target1RM} lbs` : null,
+      isMainLift: true,
+      progression: `Double progression: Hit ${phaseConfig.reps.split('-')[1]} reps → add 2.5 lbs`,
+    });
+
+    // Variation and accessories
+    if (!isDeload) {
+      const variation = exerciseData.variations[0]; // Push press
+      exercises.push({
+        name: variation.name,
+        sets: Math.round(variation.sets * volumeMultiplier),
+        reps: variation.reps,
+        rpe: 7,
+        rest: '2 min',
+        notes: variation.notes,
+        isVariation: true,
+      });
+    }
+
+    const numAccessories = isDeload ? 1 : (level === 'beginner' ? 2 : 3);
+    exerciseData.accessories.slice(0, numAccessories).forEach(acc => {
+      exercises.push({
+        name: acc.name,
+        sets: Math.round(acc.sets * volumeMultiplier),
+        reps: getDoubleProgression(acc.reps, weekInCycle, currentPhase),
+        rpe: 7,
+        rest: '60-90s',
+        notes: acc.notes,
+        isAccessory: true,
+        progression: 'Double progression: Add reps first, then weight',
+      });
     });
   }
 
-  if (focus.includes('back')) {
-    exercises.push({
-      name: 'Barbell Row',
-      sets: Math.round(4 * volumeMultiplier),
-      reps: level === 'elite' ? '4-6' : '6-8',
-      rpe: rpeBase - 1,
-      rest: '2-3 min',
-      notes: level === 'elite' ? 'Explosive pull, controlled negative' : 'Pull to lower chest, squeeze at top',
-      progression: `Add 5lbs every 2 weeks when form stays solid`,
-    });
+  // ============ BACK (for non-deadlift back days) ============
+  if (focus.includes('back') && !focus.includes('posterior') && !focus.includes('Deadlift')) {
+    const exercises_back = [
+      { name: 'Barbell Row', sets: 4, reps: '6-10', rpe: 8, rest: '2-3 min', notes: 'Pull to lower chest, squeeze lats' },
+      { name: 'Weighted Pull-ups', sets: 4, reps: '6-10', rpe: 8, rest: '2-3 min', notes: 'Dead hang to chin over bar' },
+      { name: 'Lat Pulldown', sets: 3, reps: '10-12', rpe: 7, rest: '90s', notes: 'Drive elbows down' },
+      { name: 'Seated Cable Row', sets: 3, reps: '10-12', rpe: 7, rest: '90s', notes: 'Squeeze at contraction' },
+    ];
 
-    exercises.push({
-      name: 'Weighted Pull-ups',
-      sets: Math.round(4 * volumeMultiplier),
-      reps: level === 'elite' ? '5-8' : '6-10',
-      rpe: rpeBase - 1,
-      rest: '2-3 min',
-      notes: 'Add weight as needed, full ROM',
-      progression: `Add 2.5-5lbs when hitting top of rep range`,
-    });
-  }
-
-  if (focus.includes('triceps')) {
-    exercises.push({
-      name: level === 'elite' ? 'JM Press' : 'Tricep Pushdowns',
-      sets: Math.round(3 * volumeMultiplier),
-      reps: '8-12',
-      rpe: 7,
-      rest: '90s',
-      notes: level === 'elite' ? 'Bench accessory, lockout strength' : 'Keep elbows pinned',
-      progression: `Add reps first (8→12), then add 5lbs and reset to 8 reps`,
+    const numExercises = isDeload ? 2 : (level === 'beginner' ? 3 : 4);
+    exercises_back.slice(0, numExercises).forEach(ex => {
+      exercises.push({
+        ...ex,
+        sets: Math.round(ex.sets * volumeMultiplier),
+        reps: getDoubleProgression(ex.reps, weekInCycle, currentPhase),
+        isAccessory: true,
+        progression: 'Double progression: Add reps first, then weight',
+      });
     });
   }
 
-  if (focus.includes('biceps')) {
-    exercises.push({
-      name: 'Barbell Curls',
-      sets: Math.round(3 * volumeMultiplier),
-      reps: '8-12',
-      rpe: 7,
-      rest: '90s',
-      notes: 'Full range of motion, no swinging',
-      progression: `Add reps first (8→12), then add 5lbs and reset to 8 reps`,
+  // ============ ARMS (for dedicated arm work) ============
+  if (focus.includes('triceps') || focus.includes('arms')) {
+    const tricepExercises = [
+      { name: 'Close-Grip Bench Press', sets: 3, reps: '6-8', rpe: 7, rest: '2 min', notes: 'Elbows tucked' },
+      { name: 'Tricep Pushdowns', sets: 3, reps: '10-12', rpe: 7, rest: '60s', notes: 'Lock elbows in place' },
+      { name: 'Skull Crushers', sets: 3, reps: '10-12', rpe: 7, rest: '60s', notes: 'Lower to forehead' },
+    ];
+    const numTri = isDeload ? 1 : (level === 'beginner' ? 2 : 3);
+    tricepExercises.slice(0, numTri).forEach(ex => {
+      exercises.push({
+        ...ex,
+        sets: Math.round(ex.sets * volumeMultiplier),
+        reps: getDoubleProgression(ex.reps, weekInCycle, currentPhase),
+        isAccessory: true,
+        progression: 'Double progression: 10→12 reps, then +5 lbs',
+      });
     });
   }
 
+  if (focus.includes('biceps') || focus.includes('arms')) {
+    const bicepExercises = [
+      { name: 'Barbell Curls', sets: 3, reps: '8-12', rpe: 7, rest: '60s', notes: 'No swinging' },
+      { name: 'Incline Dumbbell Curls', sets: 3, reps: '10-12', rpe: 7, rest: '60s', notes: 'Full stretch at bottom' },
+      { name: 'Hammer Curls', sets: 3, reps: '10-12', rpe: 7, rest: '60s', notes: 'Neutral grip' },
+    ];
+    const numBi = isDeload ? 1 : (level === 'beginner' ? 2 : 3);
+    bicepExercises.slice(0, numBi).forEach(ex => {
+      exercises.push({
+        ...ex,
+        sets: Math.round(ex.sets * volumeMultiplier),
+        reps: getDoubleProgression(ex.reps, weekInCycle, currentPhase),
+        isAccessory: true,
+        progression: 'Double progression: 8→12 reps, then +5 lbs',
+      });
+    });
+  }
+
+  // ============ CORE ============
   if (focus.includes('core')) {
-    exercises.push({
-      name: 'Hanging Leg Raises',
-      sets: Math.round(3 * volumeMultiplier),
-      reps: level === 'elite' ? '12-15' : '10-12',
-      rpe: 7,
-      rest: '60s',
-      notes: 'Control the movement, no swinging',
-      progression: `Add weight (hold DB) when hitting 15 reps`,
+    const coreExercises = [
+      { name: 'Hanging Leg Raises', sets: 3, reps: '10-15', rpe: 7, rest: '60s', notes: 'Control the movement' },
+      { name: 'Ab Wheel Rollouts', sets: 3, reps: '8-12', rpe: 7, rest: '60s', notes: 'Full extension' },
+      { name: 'Plank', sets: 3, reps: '45-60 sec', rpe: 6, rest: '45s', notes: 'Squeeze glutes, brace core' },
+    ];
+    const numCore = isDeload ? 1 : 2;
+    coreExercises.slice(0, numCore).forEach(ex => {
+      exercises.push({
+        ...ex,
+        sets: Math.round(ex.sets * volumeMultiplier),
+        isAccessory: true,
+        progression: 'Add reps or hold time, then add weight',
+      });
     });
   }
 
@@ -2265,10 +2516,10 @@ export function generateProgram(formData) {
         } : null,
       } : null,
       strength: programType === 'strength' ? {
-        lifts: strengthGoals.filter(g => g.current).map(g => ({
+        lifts: strengthGoals.filter(g => g.current1RM).map(g => ({
           exercise: g.label,
-          current1RM: parseFloat(g.current),
-          target1RM: parseFloat(g.target),
+          current1RM: parseFloat(g.current1RM),
+          target1RM: parseFloat(g.target1RM),
         })),
       } : null,
     },
