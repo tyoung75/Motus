@@ -3,7 +3,7 @@ import { ChevronRight, ChevronLeft, User, Target, Dumbbell, Scale, Sparkles, Cal
 import { Button } from '../shared';
 import { calculateBMR, calculateTDEE, calculateMacros } from '../../utils/calculations';
 import { useAuth } from '../../context/AuthContext';
-import { generateProgram } from '../../utils/programGenerator';
+import { generateProgram as generateProgramLocal } from '../../utils/programGenerator';
 
 // Error Boundary to catch rendering errors
 class SetupErrorBoundary extends Component {
@@ -335,25 +335,51 @@ function SetupWizard({ onComplete }) {
     return (feet * 12 + inches) * 2.54;
   };
 
-  const generateProgram = async () => {
+  const handleGenerateProgram = async () => {
     setIsGenerating(true);
 
-    const weightKg = formData.weightUnit === 'lbs'
-      ? parseFloat(formData.weight) * 0.453592
-      : parseFloat(formData.weight);
+    // Defensive: ensure formData has all required fields
+    const safeFormData = {
+      ...formData,
+      programType: formData.programType || 'strength',
+      programSubtype: formData.programSubtype || 'powerlifting',
+      desiredTrainingDays: parseInt(formData.desiredTrainingDays) || 4,
+      strengthGoals: formData.strengthGoals || STRENGTH_EXERCISES.map(ex => ({
+        id: ex.id,
+        label: ex.label,
+        current: '',
+        target: '',
+      })),
+    };
+
+    const weightKg = safeFormData.weightUnit === 'lbs'
+      ? parseFloat(safeFormData.weight) * 0.453592
+      : parseFloat(safeFormData.weight);
 
     const heightCm = getHeightCm();
-    const bmr = calculateBMR(weightKg, heightCm, parseInt(formData.age), formData.sex);
-    const activityMultiplier = getActivityMultiplier(formData.desiredTrainingDays);
+    const bmr = calculateBMR(weightKg, heightCm, parseInt(safeFormData.age), safeFormData.sex);
+    const activityMultiplier = getActivityMultiplier(safeFormData.desiredTrainingDays);
     const tdee = Math.round(bmr * activityMultiplier);
-    const macros = calculateSmartMacros(tdee, formData, parseFloat(formData.weight));
+    const macros = calculateSmartMacros(tdee, safeFormData, parseFloat(safeFormData.weight));
+
+    const profileData = {
+      ...safeFormData,
+      weightKg,
+      heightCm,
+      bmr,
+      tdee,
+      macros,
+    };
+
+    let program = null;
 
     try {
+      console.log('Calling API with profile:', safeFormData.programType, safeFormData.programSubtype);
       const response = await fetch('/api/generate-program', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          profile: formData,
+          profile: safeFormData,
           macros,
           bmr,
           tdee,
@@ -361,36 +387,42 @@ function SetupWizard({ onComplete }) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate program');
+        const errorText = await response.text();
+        console.error('API error response:', errorText);
+        throw new Error(`API error: ${response.status}`);
       }
 
-      const program = await response.json();
+      program = await response.json();
+      console.log('API returned program:', program?.name);
+    } catch (error) {
+      console.error('Error calling API, using fallback:', error);
+      program = generateFallbackProgram(safeFormData);
+    }
 
+    // Final validation before completing
+    if (!program || typeof program !== 'object') {
+      console.error('Invalid program after generation, creating minimal fallback');
+      program = generateFallbackProgram(safeFormData);
+    }
+
+    // Ensure program has required fields
+    program = {
+      ...program,
+      primaryGoal: program.primaryGoal || safeFormData.programType,
+      primarySubtype: program.primarySubtype || safeFormData.programSubtype,
+      daysPerWeek: program.daysPerWeek || safeFormData.desiredTrainingDays,
+      weeklySchedule: program.weeklySchedule || [],
+    };
+
+    try {
       onComplete({
-        profile: {
-          ...formData,
-          weightKg,
-          heightCm,
-          bmr,
-          tdee,
-          macros,
-        },
+        profile: profileData,
         program,
       });
-    } catch (error) {
-      console.error('Error generating program:', error);
-      const fallbackProgram = generateFallbackProgram(formData);
-      onComplete({
-        profile: {
-          ...formData,
-          weightKg,
-          heightCm,
-          bmr,
-          tdee,
-          macros,
-        },
-        program: fallbackProgram,
-      });
+    } catch (completeError) {
+      console.error('Error in onComplete:', completeError);
+      setIsGenerating(false);
+      alert('Error saving program. Please try again.');
     }
   };
 
@@ -624,7 +656,7 @@ function SetupWizard({ onComplete }) {
           <StepGenerate
             formData={formData}
             isGenerating={isGenerating}
-            onGenerate={generateProgram}
+            onGenerate={handleGenerateProgram}
           />
         )}
       </div>
@@ -2002,8 +2034,41 @@ function StepGenerate({ formData, isGenerating, onGenerate }) {
 }
 
 function generateFallbackProgram(formData) {
-  // Use the comprehensive program generator
-  return generateProgram(formData);
+  // Use the comprehensive program generator with error handling
+  try {
+    console.log('Generating fallback program with formData:', formData);
+    const program = generateProgramLocal(formData);
+    if (!program || !program.weeklySchedule) {
+      console.error('Fallback program generation returned invalid program:', program);
+      throw new Error('Invalid program generated');
+    }
+    return program;
+  } catch (error) {
+    console.error('Error in generateFallbackProgram:', error);
+    // Return a minimal valid program structure to prevent crashes
+    return {
+      name: `${formData.programType || 'Fitness'} Program`,
+      description: 'Your personalized training program',
+      mesocycleWeeks: 4,
+      currentWeek: 1,
+      currentPhase: 'Base',
+      phases: ['Base', 'Build', 'Peak', 'Deload'],
+      primaryGoal: formData.programType || 'strength',
+      primarySubtype: formData.programSubtype || 'general',
+      daysPerWeek: formData.desiredTrainingDays || 4,
+      weeklySchedule: [
+        { day: 1, dayName: 'Monday', name: 'Training Day 1', isRestDay: false, isDeload: false, sessions: [] },
+        { day: 2, dayName: 'Tuesday', name: 'Training Day 2', isRestDay: false, isDeload: false, sessions: [] },
+        { day: 3, dayName: 'Wednesday', name: 'Rest Day', isRestDay: true, isDeload: false, sessions: [] },
+        { day: 4, dayName: 'Thursday', name: 'Training Day 3', isRestDay: false, isDeload: false, sessions: [] },
+        { day: 5, dayName: 'Friday', name: 'Training Day 4', isRestDay: false, isDeload: false, sessions: [] },
+        { day: 6, dayName: 'Saturday', name: 'Rest Day', isRestDay: true, isDeload: false, sessions: [] },
+        { day: 7, dayName: 'Sunday', name: 'Rest Day', isRestDay: true, isDeload: false, sessions: [] },
+      ],
+      generatedAt: new Date().toISOString(),
+      error: 'Program generation failed - using minimal template',
+    };
+  }
 }
 
 // Wrapped export with error boundary
