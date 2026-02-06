@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, ChevronRight, Utensils, AlertCircle, Check } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, ChevronRight, Utensils, AlertCircle, Check, Calendar } from 'lucide-react';
 import { saveNutritionPreferences, loadNutritionPreferences } from '../../lib/database';
 
 const DIETARY_OPTIONS = [
@@ -31,6 +31,18 @@ const COMMON_DISLIKES = [
   'Spicy food', 'Tofu', 'Eggs', 'Nuts', 'Avocado'
 ];
 
+const DAYS_OF_WEEK = [
+  { id: 'mon', label: 'Mon' },
+  { id: 'tue', label: 'Tue' },
+  { id: 'wed', label: 'Wed' },
+  { id: 'thu', label: 'Thu' },
+  { id: 'fri', label: 'Fri' },
+  { id: 'sat', label: 'Sat' },
+  { id: 'sun', label: 'Sun' }
+];
+
+const MEAL_LABELS = ['Breakfast', 'Lunch', 'Dinner', 'Snack 1', 'Snack 2'];
+
 export default function NutritionPreferences({ isOpen, onClose, onSave, profile }) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -40,11 +52,11 @@ export default function NutritionPreferences({ isOpen, onClose, onSave, profile 
     dislikedFoods: [],
     customDislikes: '',
     mealsPerDay: 3,
-    snacksPerDay: 2,
+    snacksPerDay: 1,
     cookingTime: 'moderate', // quick, moderate, elaborate
-    servingsPerMeal: 1,
     budgetLevel: 'moderate', // budget, moderate, premium
-    prepPreference: 'mix' // meal-prep, daily, mix
+    prepPreference: 'mix', // meal-prep, daily, mix
+    excludedMeals: {} // e.g., { 'sat-dinner': true, 'sun-lunch': true }
   });
 
   useEffect(() => {
@@ -72,6 +84,36 @@ export default function NutritionPreferences({ isOpen, onClose, onSave, profile 
     }));
   };
 
+  // Toggle a specific meal exclusion (e.g., 'sat-dinner')
+  const toggleMealExclusion = (dayId, mealIndex) => {
+    const key = `${dayId}-${mealIndex}`;
+    setPreferences(prev => ({
+      ...prev,
+      excludedMeals: {
+        ...prev.excludedMeals,
+        [key]: !prev.excludedMeals[key]
+      }
+    }));
+  };
+
+  // Calculate how many meals are excluded
+  const excludedMealCount = useMemo(() => {
+    return Object.values(preferences.excludedMeals).filter(Boolean).length;
+  }, [preferences.excludedMeals]);
+
+  // Calculate adjusted calories based on excluded meals
+  const baseCalories = profile?.macros?.calories || 2000;
+  const baseProtein = profile?.macros?.protein || 150;
+
+  // Total meals per week = (mealsPerDay + snacksPerDay) * 7
+  const totalMealsPerWeek = (preferences.mealsPerDay + preferences.snacksPerDay) * 7;
+  const plannedMealsPerWeek = totalMealsPerWeek - excludedMealCount;
+
+  // Average calories per meal (rough estimate)
+  const avgCaloriesPerMeal = baseCalories / (preferences.mealsPerDay + preferences.snacksPerDay);
+  const dailyExcludedCals = Math.round((excludedMealCount / 7) * avgCaloriesPerMeal);
+  const adjustedDailyCalories = baseCalories - dailyExcludedCals;
+
   const handleSave = async () => {
     setLoading(true);
     try {
@@ -83,12 +125,14 @@ export default function NutritionPreferences({ isOpen, onClose, onSave, profile 
 
       const finalPreferences = {
         ...preferences,
-        dislikedFoods: allDislikes
+        dislikedFoods: allDislikes,
+        adjustedCalories: adjustedDailyCalories,
+        excludedMealCount,
+        plannedMealsPerWeek
       };
 
       await saveNutritionPreferences(finalPreferences);
       onSave?.(finalPreferences);
-      onClose();
     } catch (error) {
       console.error('Error saving preferences:', error);
     }
@@ -97,8 +141,21 @@ export default function NutritionPreferences({ isOpen, onClose, onSave, profile 
 
   if (!isOpen) return null;
 
-  const targetCalories = profile?.macros?.calories || 2000;
-  const targetProtein = profile?.macros?.protein || 150;
+  // Get meal labels based on mealsPerDay + snacksPerDay
+  const getMealLabels = () => {
+    const labels = [];
+    for (let i = 0; i < preferences.mealsPerDay; i++) {
+      if (i === 0) labels.push('B'); // Breakfast
+      else if (i === preferences.mealsPerDay - 1) labels.push('D'); // Dinner
+      else labels.push('L'); // Lunch
+    }
+    for (let i = 0; i < preferences.snacksPerDay; i++) {
+      labels.push('S'); // Snack
+    }
+    return labels;
+  };
+
+  const mealLabels = getMealLabels();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -130,17 +187,24 @@ export default function NutritionPreferences({ isOpen, onClose, onSave, profile 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {step === 1 && (
-            <div className="space-y-6">
-              {/* Daily Targets Summary */}
-              <div className="bg-dark-700 rounded-xl p-4">
-                <h3 className="text-sm font-medium text-gray-400 mb-3">Your Daily Targets</h3>
+            <div className="space-y-5">
+              {/* Daily Targets Summary - Shows adjusted calories */}
+              <div className="bg-dark-700 rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-gray-400">Planned Daily Targets</h3>
+                  {excludedMealCount > 0 && (
+                    <span className="text-xs text-amber-400">{excludedMealCount} meals skipped/week</span>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-accent-primary">{targetCalories}</div>
-                    <div className="text-xs text-gray-400">Calories</div>
+                    <div className="text-2xl font-bold text-accent-primary">{adjustedDailyCalories}</div>
+                    <div className="text-xs text-gray-400">
+                      {excludedMealCount > 0 ? `avg cal/day (was ${baseCalories})` : 'Calories'}
+                    </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-accent-secondary">{targetProtein}g</div>
+                    <div className="text-2xl font-bold text-accent-secondary">{baseProtein}g</div>
                     <div className="text-xs text-gray-400">Protein</div>
                   </div>
                 </div>
@@ -148,42 +212,112 @@ export default function NutritionPreferences({ isOpen, onClose, onSave, profile 
 
               {/* Dietary Restrictions */}
               <div>
-                <h3 className="text-sm font-medium text-white mb-3">Dietary Restrictions</h3>
+                <h3 className="text-sm font-medium text-white mb-2">Dietary Restrictions</h3>
                 <div className="grid grid-cols-3 gap-2">
                   {DIETARY_OPTIONS.map(option => (
                     <button
                       key={option.id}
                       onClick={() => toggleArrayItem('dietaryRestrictions', option.id)}
-                      className={`p-3 rounded-lg border text-center transition-all ${
+                      className={`p-2 rounded-lg border text-center transition-all ${
                         preferences.dietaryRestrictions.includes(option.id)
                           ? 'bg-accent-secondary/20 border-accent-secondary text-white'
                           : 'bg-dark-700 border-dark-600 text-gray-400 hover:border-dark-500'
                       }`}
                     >
-                      <span className="text-lg block mb-1">{option.icon}</span>
+                      <span className="text-base block">{option.icon}</span>
                       <span className="text-xs">{option.label}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Meals per day */}
+              {/* Meals & Snacks per day */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-white mb-2">Meals/Day</h3>
+                  <div className="flex gap-1">
+                    {[2, 3, 4].map(num => (
+                      <button
+                        key={num}
+                        onClick={() => setPreferences(p => ({ ...p, mealsPerDay: num, excludedMeals: {} }))}
+                        className={`flex-1 py-2 rounded-lg border text-sm transition-all ${
+                          preferences.mealsPerDay === num
+                            ? 'bg-accent-primary/20 border-accent-primary text-white'
+                            : 'bg-dark-700 border-dark-600 text-gray-400'
+                        }`}
+                      >
+                        {num}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-white mb-2">Snacks/Day</h3>
+                  <div className="flex gap-1">
+                    {[0, 1, 2].map(num => (
+                      <button
+                        key={num}
+                        onClick={() => setPreferences(p => ({ ...p, snacksPerDay: num, excludedMeals: {} }))}
+                        className={`flex-1 py-2 rounded-lg border text-sm transition-all ${
+                          preferences.snacksPerDay === num
+                            ? 'bg-accent-secondary/20 border-accent-secondary text-white'
+                            : 'bg-dark-700 border-dark-600 text-gray-400'
+                        }`}
+                      >
+                        {num}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Meal Exclusion Grid - Skip specific meals */}
               <div>
-                <h3 className="text-sm font-medium text-white mb-3">Meals Per Day</h3>
-                <div className="flex gap-2">
-                  {[2, 3, 4, 5].map(num => (
-                    <button
-                      key={num}
-                      onClick={() => setPreferences(p => ({ ...p, mealsPerDay: num }))}
-                      className={`flex-1 py-3 rounded-lg border transition-all ${
-                        preferences.mealsPerDay === num
-                          ? 'bg-accent-primary/20 border-accent-primary text-white'
-                          : 'bg-dark-700 border-dark-600 text-gray-400'
-                      }`}
-                    >
-                      {num}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="w-4 h-4 text-gray-400" />
+                  <h3 className="text-sm font-medium text-white">Skip Meals (eating out, etc.)</h3>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">Tap to skip - checked meals won't be planned</p>
+
+                <div className="bg-dark-700 rounded-xl p-3 overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr>
+                        <th className="text-left text-gray-500 font-medium pb-2 pr-2"></th>
+                        {DAYS_OF_WEEK.map(day => (
+                          <th key={day.id} className="text-center text-gray-400 font-medium pb-2 px-1">
+                            {day.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mealLabels.map((label, mealIdx) => (
+                        <tr key={mealIdx}>
+                          <td className="text-gray-400 pr-2 py-1 whitespace-nowrap">
+                            {label === 'B' ? '🍳' : label === 'L' ? '🥗' : label === 'D' ? '🍽️' : '🍎'}
+                          </td>
+                          {DAYS_OF_WEEK.map(day => {
+                            const isExcluded = preferences.excludedMeals[`${day.id}-${mealIdx}`];
+                            return (
+                              <td key={day.id} className="text-center px-1 py-1">
+                                <button
+                                  onClick={() => toggleMealExclusion(day.id, mealIdx)}
+                                  className={`w-6 h-6 rounded border transition-all ${
+                                    isExcluded
+                                      ? 'bg-amber-500/30 border-amber-500 text-amber-400'
+                                      : 'bg-dark-600 border-dark-500 text-transparent hover:border-dark-400'
+                                  }`}
+                                >
+                                  {isExcluded && <Check className="w-4 h-4 mx-auto" />}
+                                </button>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -305,25 +439,6 @@ export default function NutritionPreferences({ isOpen, onClose, onSave, profile 
                 </div>
               </div>
 
-              {/* Servings */}
-              <div>
-                <h3 className="text-sm font-medium text-white mb-3">Servings Per Recipe</h3>
-                <div className="flex gap-2">
-                  {[1, 2, 4, 6].map(num => (
-                    <button
-                      key={num}
-                      onClick={() => setPreferences(p => ({ ...p, servingsPerMeal: num }))}
-                      className={`flex-1 py-3 rounded-lg border transition-all ${
-                        preferences.servingsPerMeal === num
-                          ? 'bg-accent-primary/20 border-accent-primary text-white'
-                          : 'bg-dark-700 border-dark-600 text-gray-400'
-                      }`}
-                    >
-                      {num} {num === 1 ? 'serving' : 'servings'}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
         </div>

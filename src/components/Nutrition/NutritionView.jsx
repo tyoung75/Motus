@@ -1,12 +1,26 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronLeft, ChevronRight, Flame, Target, Info, Zap } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, Flame, Target, Info, Zap, ChefHat, Calendar, ShoppingCart, Loader2 } from 'lucide-react';
 import { Card, CardBody, Button, ProgressBar } from '../shared';
 import { estimateDailyCalories } from '../../utils/calorieEstimation';
+import MealPlanView from './MealPlanView';
+import ShoppingListView from './ShoppingListView';
 
-export function NutritionView({ profile, meals, workouts, onLogMeal, onDeleteMeal, onBack }) {
+export function NutritionView({
+  profile,
+  meals,
+  workouts,
+  mealPlan,
+  recipes,
+  isGeneratingMealPlan,
+  onLogMeal,
+  onDeleteMeal,
+  onCreateMealPlan,
+  onBack
+}) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDetailedView, setShowDetailedView] = useState(false);
-  const { macros, bmr, tdee } = profile;
+  const [activeView, setActiveView] = useState('tracking'); // 'tracking', 'mealplan', 'shopping'
+  const { macros, bmr, tdee } = profile || {};
 
   const weightLbs = profile.weightUnit === 'kg'
     ? profile.weight / 0.453592
@@ -55,6 +69,30 @@ export function NutritionView({ profile, meals, workouts, onLogMeal, onDeleteMea
   const isToday =
     selectedDate.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
 
+  // Show MealPlanView
+  if (activeView === 'mealplan' && mealPlan) {
+    return (
+      <MealPlanView
+        mealPlan={mealPlan}
+        recipes={recipes}
+        profile={profile}
+        onBack={() => setActiveView('tracking')}
+        onOpenShoppingList={() => setActiveView('shopping')}
+      />
+    );
+  }
+
+  // Show ShoppingListView
+  if (activeView === 'shopping' && mealPlan) {
+    return (
+      <ShoppingListView
+        mealPlan={mealPlan}
+        recipes={recipes}
+        onBack={() => setActiveView('mealplan')}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-dark-900 pb-20">
       {/* Header */}
@@ -77,6 +115,42 @@ export function NutritionView({ profile, meals, workouts, onLogMeal, onDeleteMea
             <Plus className="w-4 h-4 mr-1" />
             Log Meal
           </Button>
+        </div>
+
+        {/* View Toggle Tabs */}
+        <div className="flex gap-2 mt-4">
+          <button
+            onClick={() => setActiveView('tracking')}
+            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+              activeView === 'tracking'
+                ? 'bg-accent-primary text-dark-900'
+                : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
+            }`}
+          >
+            <Target className="w-4 h-4" />
+            Tracking
+          </button>
+          <button
+            onClick={() => mealPlan ? setActiveView('mealplan') : onCreateMealPlan?.()}
+            disabled={isGeneratingMealPlan}
+            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+              activeView === 'mealplan'
+                ? 'bg-accent-secondary text-dark-900'
+                : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
+            }`}
+          >
+            {isGeneratingMealPlan ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <ChefHat className="w-4 h-4" />
+                {mealPlan ? 'Meal Plan' : 'Create Plan'}
+              </>
+            )}
+          </button>
         </div>
 
         {/* Date Navigation */}
