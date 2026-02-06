@@ -333,6 +333,7 @@ function AppContent() {
         isVisible={showPaywall && !isSubscribed}
         onClose={() => setShowPaywall(false)}
         onSuccess={handleSubscriptionSuccess}
+        program={program}
       />
 
       {/* Main Content - with blur effect if not subscribed */}
