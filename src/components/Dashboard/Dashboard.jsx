@@ -33,6 +33,7 @@ export function Dashboard({
   onViewProgram,
   onViewNutrition,
   onShowPaywall,
+  onCreateMealPlan,
 }) {
   const { macros, bmr, tdee } = profile;
   const weightLbs = profile.weightUnit === 'kg'
@@ -165,71 +166,28 @@ export function Dashboard({
       </header>
 
       <div className="px-6 space-y-5">
-        {/* Program Summary Card - Quick overview at the top */}
-        <Card className="bg-gradient-to-br from-dark-800 to-dark-900 border-accent-primary/20">
-          <CardBody className="p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-bold text-white mb-1">
-                  {program?.name || 'Your Program'}
-                </h2>
-                <p className="text-sm text-gray-400">
-                  {program?.totalWeeks} weeks • {program?.daysPerWeek} days/week • {program?.currentPhase || 'Base'} phase
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Daily Target</p>
-                <p className="text-2xl font-bold text-accent-primary">{macros?.calories || tdee}</p>
-                <p className="text-xs text-gray-500">kcal</p>
-              </div>
-            </div>
-
-            {/* Macro Targets Summary */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="bg-dark-700/50 rounded-lg p-3 text-center">
-                <p className="text-lg font-bold text-blue-400">{macros?.protein || 0}g</p>
-                <p className="text-xs text-gray-500">Protein</p>
-              </div>
-              <div className="bg-dark-700/50 rounded-lg p-3 text-center">
-                <p className="text-lg font-bold text-amber-400">{macros?.carbs || 0}g</p>
-                <p className="text-xs text-gray-500">Carbs</p>
-              </div>
-              <div className="bg-dark-700/50 rounded-lg p-3 text-center">
-                <p className="text-lg font-bold text-purple-400">{macros?.fat || 0}g</p>
-                <p className="text-xs text-gray-500">Fat</p>
-              </div>
-            </div>
-
-            {/* Goal Summary */}
-            <div className="flex items-center gap-2 text-sm text-gray-400 bg-dark-700/30 rounded-lg p-3">
-              <Target className="w-4 h-4 text-accent-primary flex-shrink-0" />
-              <span>{getGoalMessage() || `${program?.primarySubtype || 'Training'} program with personalized progression`}</span>
-            </div>
-          </CardBody>
-        </Card>
-
         {/* Meal Plan CTA - Only show when subscribed */}
         {isSubscribed && (
           <Card
             hover
-            onClick={onViewNutrition}
+            onClick={onCreateMealPlan}
             className="bg-gradient-to-r from-accent-success/10 to-accent-primary/10 border-accent-success/30"
           >
-            <CardBody className="p-5">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-accent-success/20 flex items-center justify-center">
-                  <Apple className="w-6 h-6 text-accent-success" />
+            <CardBody className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-accent-success/20 flex items-center justify-center">
+                  <Apple className="w-5 h-5 text-accent-success" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-white flex items-center gap-2">
+                  <h3 className="font-semibold text-white text-sm flex items-center gap-2">
                     Create Your Meal Plan
-                    <Sparkles className="w-4 h-4 text-accent-primary" />
+                    <Sparkles className="w-3 h-3 text-accent-primary" />
                   </h3>
-                  <p className="text-sm text-gray-400">
-                    Get personalized recipes and a shopping list tailored to your goals
+                  <p className="text-xs text-gray-400">
+                    Personalized recipes and shopping list
                   </p>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-500" />
+                <ChevronRight className="w-4 h-4 text-gray-500" />
               </div>
             </CardBody>
           </Card>
@@ -239,57 +197,44 @@ export function Dashboard({
         <Card hover onClick={onViewNutrition} className="overflow-hidden">
           <CardBody className="p-0">
             {/* Header bar */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-dark-600">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-dark-600">
               <h2 className="font-semibold text-white flex items-center gap-2">
-                <Flame className="w-5 h-5 text-accent-primary" />
-                Energy Balance
+                <Flame className="w-4 h-4 text-accent-primary" />
+                Today's Nutrition
               </h2>
-              <ChevronRight className="w-5 h-5 text-dark-400" />
+              <ChevronRight className="w-4 h-4 text-dark-400" />
             </div>
 
-            {/* Main stats */}
+            {/* Main stats - simplified */}
             <div className="grid grid-cols-3 divide-x divide-dark-600">
-              {/* Burned */}
-              <div className="p-4 text-center">
-                <Zap className="w-5 h-5 text-accent-danger mx-auto mb-2" />
-                <p className="font-display text-2xl font-bold text-white">{dailyBurn.totalDailyBurn}</p>
-                <p className="text-xs text-text-muted uppercase tracking-wide mt-1">Burned</p>
-              </div>
-
-              {/* Net */}
-              <div className="p-4 text-center bg-dark-700/50">
-                <p className="text-xs text-text-muted uppercase tracking-wide mb-2">Net</p>
-                <p className={`font-display text-3xl font-bold ${
-                  netCalories < 0 ? 'text-accent-success' : 'text-accent-primary'
-                }`}>
-                  {netCalories > 0 ? '+' : ''}{netCalories}
-                </p>
-                <p className="text-xs text-text-muted mt-1">kcal</p>
+              {/* Target */}
+              <div className="p-3 text-center">
+                <p className="text-xs text-text-muted uppercase tracking-wide mb-1">Target</p>
+                <p className="font-display text-xl font-bold text-white">{macros?.calories || tdee}</p>
               </div>
 
               {/* Consumed */}
-              <div className="p-4 text-center">
-                <Utensils className="w-5 h-5 text-accent-success mx-auto mb-2" />
-                <p className="font-display text-2xl font-bold text-white">{consumed.calories}</p>
-                <p className="text-xs text-text-muted uppercase tracking-wide mt-1">Eaten</p>
+              <div className="p-3 text-center">
+                <p className="text-xs text-text-muted uppercase tracking-wide mb-1">Eaten</p>
+                <p className="font-display text-xl font-bold text-accent-success">{consumed.calories}</p>
+              </div>
+
+              {/* Remaining */}
+              <div className="p-3 text-center bg-dark-700/50">
+                <p className="text-xs text-text-muted uppercase tracking-wide mb-1">Left</p>
+                <p className={`font-display text-xl font-bold ${
+                  (macros?.calories || tdee) - consumed.calories > 0 ? 'text-accent-primary' : 'text-accent-danger'
+                }`}>
+                  {(macros?.calories || tdee) - consumed.calories}
+                </p>
               </div>
             </div>
 
             {/* Macro bars */}
-            <div className="px-5 py-4 space-y-3 border-t border-dark-600">
+            <div className="px-4 py-3 space-y-2 border-t border-dark-600">
               <MacroBar label="Protein" current={consumed.protein} target={macros.protein} color="primary" />
               <MacroBar label="Carbs" current={consumed.carbs} target={macros.carbs} color="warning" />
               <MacroBar label="Fat" current={consumed.fat} target={macros.fat} color="secondary" />
-            </div>
-
-            {/* TDEE Explanation */}
-            <div className="px-5 py-3 bg-dark-700/30 border-t border-dark-600">
-              <p className="text-xs text-text-muted leading-relaxed">
-                <span className="text-accent-primary font-medium">TDEE Estimate:</span> Based on your physiology (BMR: {Math.round(bmr || 1800)} kcal)
-                + activity level{hasScheduledWorkout ? ` + today's workout burn (~${scheduledWorkoutBurn + caloriesBurnedFromWorkouts} kcal)` : ''}.
-                {isRestOrNoWorkout && <span className="text-gray-500"> No workout scheduled today.</span>}
-                {' '}These macros are optimized for your <span className="text-white">{profile?.nutritionGoal || 'performance'}</span> goal.
-              </p>
             </div>
           </CardBody>
         </Card>

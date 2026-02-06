@@ -6,6 +6,7 @@ import { SetupWizard } from './components/SetupWizard/SetupWizard';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { ProgramView } from './components/Program/ProgramView';
 import { NutritionView } from './components/Nutrition/NutritionView';
+import NutritionPreferences from './components/Nutrition/NutritionPreferences';
 import { StatsView } from './components/Stats/StatsView';
 import { ProfileView } from './components/Profile/ProfileView';
 import { LogMealModal } from './components/Modals/LogMealModal';
@@ -49,6 +50,7 @@ function AppContent() {
   const [showLanding, setShowLanding] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showNutritionPreferences, setShowNutritionPreferences] = useState(false);
 
   // Load data from cloud or localStorage on mount/auth change
   useEffect(() => {
@@ -373,6 +375,7 @@ function AppContent() {
             onViewProgram={() => isSubscribed ? setActiveTab('program') : setShowPaywall(true)}
             onViewNutrition={() => isSubscribed ? setActiveTab('nutrition') : setShowPaywall(true)}
             onShowPaywall={() => setShowPaywall(true)}
+            onCreateMealPlan={() => setShowNutritionPreferences(true)}
           />
         )}
 
@@ -443,6 +446,18 @@ function AppContent() {
         onClose={() => setShowWorkoutModal(false)}
         onSave={handleLogWorkout}
         program={program}
+      />
+
+      <NutritionPreferences
+        isOpen={showNutritionPreferences}
+        onClose={() => setShowNutritionPreferences(false)}
+        onSave={(prefs) => {
+          console.log('Nutrition preferences saved:', prefs);
+          // TODO: Generate meal plan with these preferences
+          setShowNutritionPreferences(false);
+          setActiveTab('nutrition');
+        }}
+        profile={profile}
       />
     </div>
   );
