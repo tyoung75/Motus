@@ -295,6 +295,14 @@ function SetupWizard({ onComplete }) {
 
   const handleNext = () => {
     if (currentStep < 6) {
+      console.log('handleNext: transitioning from step', currentStep, 'to step', currentStep + 1);
+      console.log('Current formData:', {
+        programType: formData.programType,
+        programSubtype: formData.programSubtype,
+        strengthGoalsExists: !!formData.strengthGoals,
+        strengthGoalsIsArray: Array.isArray(formData.strengthGoals),
+        strengthGoalsLength: formData.strengthGoals?.length,
+      });
       setCurrentStep((prev) => prev + 1);
     }
   };
@@ -636,14 +644,27 @@ function SetupWizard({ onComplete }) {
         {currentStep === 3 && (
           <StepPrimaryGoal formData={formData} updateFormData={updateFormData} />
         )}
-        {currentStep === 4 && (
-          <StepGoalDetails
-            formData={formData}
-            updateFormData={updateFormData}
-            updateStrengthGoal={updateStrengthGoal}
-            strengthGoalError={strengthGoalError}
-          />
-        )}
+        {currentStep === 4 && (() => {
+          console.log('Rendering step 4 (StepGoalDetails)');
+          try {
+            return (
+              <StepGoalDetails
+                formData={formData}
+                updateFormData={updateFormData}
+                updateStrengthGoal={updateStrengthGoal}
+                strengthGoalError={strengthGoalError}
+              />
+            );
+          } catch (error) {
+            console.error('Error rendering StepGoalDetails:', error);
+            return (
+              <div className="max-w-md mx-auto p-6 text-center">
+                <p className="text-red-500 mb-4">Error loading goal details.</p>
+                <p className="text-gray-400 text-sm">{error?.message || 'Unknown error'}</p>
+              </div>
+            );
+          }
+        })()}
         {currentStep === 5 && (
           <StepVacations
             formData={formData}
@@ -1236,9 +1257,39 @@ function StepPrimaryGoal({ formData, updateFormData }) {
 
 /// Step 4: Goal Details
 function StepGoalDetails({ formData = {}, updateFormData, updateStrengthGoal, strengthGoalError }) {
-  // Defensive defaults
+  // Debug logging
+  console.log('StepGoalDetails rendering with:', {
+    programType: formData?.programType,
+    programSubtype: formData?.programSubtype,
+    hasStrengthGoals: !!formData?.strengthGoals,
+    strengthGoalsLength: formData?.strengthGoals?.length,
+  });
+
+  // Defensive defaults - ensure formData is an object
+  if (!formData || typeof formData !== 'object') {
+    console.error('StepGoalDetails: formData is invalid', formData);
+    return (
+      <div className="max-w-md mx-auto p-6">
+        <p className="text-red-500">Error loading goal details. Please go back and try again.</p>
+      </div>
+    );
+  }
+
   const programType = formData.programType || '';
   const programSubtype = formData.programSubtype || '';
+
+  // Safe updateStrengthGoal wrapper
+  const safeUpdateStrengthGoal = (exerciseId, field, value) => {
+    try {
+      if (typeof updateStrengthGoal === 'function') {
+        updateStrengthGoal(exerciseId, field, value);
+      } else {
+        console.error('updateStrengthGoal is not a function');
+      }
+    } catch (error) {
+      console.error('Error in safeUpdateStrengthGoal:', error);
+    }
+  };
 
   const renderGoalInputs = () => {
     // Endurance goals
@@ -1556,13 +1607,40 @@ function StepGoalDetails({ formData = {}, updateFormData, updateStrengthGoal, st
 
     // Strength goals - 5 exercises
     if (programType === 'strength') {
-      // Defensive check for strengthGoals
-      const strengthGoals = formData.strengthGoals || STRENGTH_EXERCISES.map(ex => ({
-        id: ex.id,
-        label: ex.label,
-        current: '',
-        target: '',
-      }));
+      console.log('Rendering strength goals section');
+
+      // Very defensive check for strengthGoals
+      let strengthGoals = [];
+      try {
+        if (Array.isArray(formData.strengthGoals) && formData.strengthGoals.length > 0) {
+          strengthGoals = formData.strengthGoals;
+        } else if (typeof STRENGTH_EXERCISES !== 'undefined' && Array.isArray(STRENGTH_EXERCISES)) {
+          strengthGoals = STRENGTH_EXERCISES.map(ex => ({
+            id: ex?.id || 'unknown',
+            label: ex?.label || 'Exercise',
+            current: '',
+            target: '',
+          }));
+        } else {
+          // Hardcoded fallback
+          strengthGoals = [
+            { id: 'squat', label: 'Back Squat', current: '', target: '' },
+            { id: 'bench', label: 'Bench Press', current: '', target: '' },
+            { id: 'deadlift', label: 'Deadlift', current: '', target: '' },
+            { id: 'ohp', label: 'Overhead Press', current: '', target: '' },
+            { id: 'row', label: 'Barbell Row', current: '', target: '' },
+          ];
+        }
+      } catch (error) {
+        console.error('Error creating strengthGoals:', error);
+        strengthGoals = [
+          { id: 'squat', label: 'Back Squat', current: '', target: '' },
+          { id: 'bench', label: 'Bench Press', current: '', target: '' },
+          { id: 'deadlift', label: 'Deadlift', current: '', target: '' },
+        ];
+      }
+
+      console.log('strengthGoals prepared:', strengthGoals.length, 'exercises');
 
       return (
         <div className="space-y-4">
@@ -1586,33 +1664,45 @@ function StepGoalDetails({ formData = {}, updateFormData, updateStrengthGoal, st
             </p>
           </div>
 
-          {strengthGoals.map((exercise) => (
-            <div key={exercise.id} className="p-3 bg-dark-700 rounded-lg">
-              <span className="text-white font-medium block mb-2">{exercise.label}</span>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <input
-                    type="number"
-                    value={exercise.current}
-                    onChange={(e) => updateStrengthGoal(exercise.id, 'current', e.target.value)}
-                    placeholder="Current 1RM"
-                    className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm placeholder-gray-500"
-                  />
-                  <span className="text-xs text-gray-500">Current</span>
-                </div>
-                <div>
-                  <input
-                    type="number"
-                    value={exercise.target}
-                    onChange={(e) => updateStrengthGoal(exercise.id, 'target', e.target.value)}
-                    placeholder="Target 1RM"
-                    className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm placeholder-gray-500"
-                  />
-                  <span className="text-xs text-gray-500">Target</span>
+          {strengthGoals.map((exercise, index) => {
+            // Defensive check for each exercise
+            if (!exercise || typeof exercise !== 'object') {
+              console.error('Invalid exercise at index', index, exercise);
+              return null;
+            }
+            const exerciseId = exercise.id || `exercise-${index}`;
+            const exerciseLabel = exercise.label || `Exercise ${index + 1}`;
+            const currentValue = exercise.current || '';
+            const targetValue = exercise.target || '';
+
+            return (
+              <div key={exerciseId} className="p-3 bg-dark-700 rounded-lg">
+                <span className="text-white font-medium block mb-2">{exerciseLabel}</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="number"
+                      value={currentValue}
+                      onChange={(e) => safeUpdateStrengthGoal(exerciseId, 'current', e.target.value)}
+                      placeholder="Current 1RM"
+                      className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm placeholder-gray-500"
+                    />
+                    <span className="text-xs text-gray-500">Current</span>
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      value={targetValue}
+                      onChange={(e) => safeUpdateStrengthGoal(exerciseId, 'target', e.target.value)}
+                      placeholder="Target 1RM"
+                      className="w-full px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-white text-sm placeholder-gray-500"
+                    />
+                    <span className="text-xs text-gray-500">Target</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       );
     }
