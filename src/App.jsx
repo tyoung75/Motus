@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SubscriptionProvider, useSubscription } from './context/SubscriptionContext';
 import { LandingPage } from './components/Landing/LandingPage';
 import { SetupWizard } from './components/SetupWizard/SetupWizard';
 import { Dashboard } from './components/Dashboard/Dashboard';
@@ -10,6 +11,7 @@ import { ProfileView } from './components/Profile/ProfileView';
 import { LogMealModal } from './components/Modals/LogMealModal';
 import { LogWorkoutModal } from './components/Modals/LogWorkoutModal';
 import { TabBar } from './components/shared/TabBar';
+import { PaywallOverlay } from './components/Paywall';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import {
   loadProfile,
@@ -25,6 +27,12 @@ import {
 
 function AppContent() {
   const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const {
+    isSubscribed,
+    loading: subscriptionLoading,
+    initializeSubscription,
+    activatePaidSubscription
+  } = useSubscription();
 
   // Persisted state (localStorage as fallback)
   const [profile, setProfileLocal] = useLocalStorage('motus_profile', null);
@@ -40,6 +48,7 @@ function AppContent() {
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   // Load data from cloud or localStorage on mount/auth change
   useEffect(() => {
@@ -108,7 +117,24 @@ function AppContent() {
   const handleSetupComplete = async (data) => {
     await setProfile(data.profile);
     await setProgram(data.program);
+
+    // Initialize subscription for new users
+    await initializeSubscription();
+
+    // Show paywall unless already subscribed
+    if (!isSubscribed) {
+      setShowPaywall(true);
+    }
+
     setIsSetupComplete(true);
+  };
+
+  // Handle successful subscription/referral
+  const handleSubscriptionSuccess = async (stripeData) => {
+    if (stripeData) {
+      await activatePaidSubscription(stripeData);
+    }
+    setShowPaywall(false);
   };
 
   // Handle meal logging
@@ -241,7 +267,7 @@ function AppContent() {
   };
 
   // Loading state
-  if (authLoading || isLoading) {
+  if (authLoading || isLoading || subscriptionLoading) {
     return (
       <div className="min-h-screen bg-dark-900 flex items-center justify-center">
         <div className="text-center">
@@ -251,6 +277,17 @@ function AppContent() {
       </div>
     );
   }
+
+  // Check for referral code in URL (for new users coming from referral link)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    if (refCode) {
+      localStorage.setItem('motus_referral_code', refCode);
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Get today's data
   const today = new Date().toISOString().split('T')[0];
@@ -280,63 +317,107 @@ function AppContent() {
   // Render main app
   return (
     <div className="min-h-screen bg-dark-900">
-      {/* Main Content */}
-      {activeTab === 'dashboard' && (
-        <Dashboard
-          profile={profile}
-          program={program}
-          meals={meals}
-          workouts={workouts}
-          todaysMeals={todaysMeals}
-          todaysWorkouts={todaysWorkouts}
-          onLogMeal={() => setShowMealModal(true)}
-          onLogWorkout={() => setShowWorkoutModal(true)}
-          onViewProgram={() => setActiveTab('program')}
-          onViewNutrition={() => setActiveTab('nutrition')}
-        />
-      )}
+      {/* Paywall Overlay - shown after setup if not subscribed */}
+      <PaywallOverlay
+        isVisible={showPaywall && !isSubscribed}
+        onClose={() => setShowPaywall(false)}
+        onSuccess={handleSubscriptionSuccess}
+      />
 
-      {activeTab === 'program' && (
-        <ProgramView
-          program={program}
-          completedWorkouts={completedExercises}
-          onCompleteExercise={handleCompleteExercise}
-          onCompleteSession={handleCompleteSession}
-          onUpdateExerciseLog={handleUpdateExerciseLog}
-          onBack={() => setActiveTab('dashboard')}
-        />
-      )}
+      {/* Main Content - with blur effect if not subscribed */}
+      <div className={!isSubscribed && isSetupComplete ? 'relative' : ''}>
+        {/* Blur overlay for non-subscribers (dashboard still visible) */}
+        {!isSubscribed && isSetupComplete && activeTab !== 'dashboard' && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-40 flex items-center justify-center">
+            <div className="text-center p-6">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent-primary/20 flex items-center justify-center">
+                <svg className="w-8 h-8 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">Premium Feature</h3>
+              <p className="text-gray-400 mb-4">Subscribe to unlock this tab</p>
+              <button
+                onClick={() => setShowPaywall(true)}
+                className="px-6 py-2 bg-accent-primary text-dark-900 font-medium rounded-lg hover:bg-accent-primary/90"
+              >
+                Unlock Now
+              </button>
+            </div>
+          </div>
+        )}
 
-      {activeTab === 'nutrition' && (
-        <NutritionView
-          profile={profile}
-          meals={meals}
-          workouts={workouts}
-          onLogMeal={() => setShowMealModal(true)}
-          onDeleteMeal={handleDeleteMeal}
-          onBack={() => setActiveTab('dashboard')}
-        />
-      )}
+        {activeTab === 'dashboard' && (
+          <Dashboard
+            profile={profile}
+            program={program}
+            meals={meals}
+            workouts={workouts}
+            todaysMeals={todaysMeals}
+            todaysWorkouts={todaysWorkouts}
+            isSubscribed={isSubscribed}
+            onLogMeal={() => isSubscribed ? setShowMealModal(true) : setShowPaywall(true)}
+            onLogWorkout={() => isSubscribed ? setShowWorkoutModal(true) : setShowPaywall(true)}
+            onViewProgram={() => isSubscribed ? setActiveTab('program') : setShowPaywall(true)}
+            onViewNutrition={() => isSubscribed ? setActiveTab('nutrition') : setShowPaywall(true)}
+            onShowPaywall={() => setShowPaywall(true)}
+          />
+        )}
 
-      {activeTab === 'stats' && (
-        <StatsView
-          profile={profile}
-          program={program}
-          meals={meals}
-          workouts={workouts}
-        />
-      )}
+        {activeTab === 'program' && isSubscribed && (
+          <ProgramView
+            program={program}
+            completedWorkouts={completedExercises}
+            onCompleteExercise={handleCompleteExercise}
+            onCompleteSession={handleCompleteSession}
+            onUpdateExerciseLog={handleUpdateExerciseLog}
+            onBack={() => setActiveTab('dashboard')}
+          />
+        )}
 
-      {activeTab === 'profile' && (
-        <ProfileView
-          profile={profile}
-          program={program}
-          onResetSetup={handleResetSetup}
-        />
-      )}
+        {activeTab === 'nutrition' && isSubscribed && (
+          <NutritionView
+            profile={profile}
+            meals={meals}
+            workouts={workouts}
+            onLogMeal={() => setShowMealModal(true)}
+            onDeleteMeal={handleDeleteMeal}
+            onBack={() => setActiveTab('dashboard')}
+          />
+        )}
+
+        {activeTab === 'stats' && isSubscribed && (
+          <StatsView
+            profile={profile}
+            program={program}
+            meals={meals}
+            workouts={workouts}
+          />
+        )}
+
+        {activeTab === 'profile' && (
+          <ProfileView
+            profile={profile}
+            program={program}
+            isSubscribed={isSubscribed}
+            onResetSetup={handleResetSetup}
+            onShowPaywall={() => setShowPaywall(true)}
+          />
+        )}
+      </div>
 
       {/* Tab Bar */}
-      <TabBar activeTab={activeTab} onChange={setActiveTab} />
+      <TabBar
+        activeTab={activeTab}
+        onChange={(tab) => {
+          if (!isSubscribed && tab !== 'dashboard' && tab !== 'profile') {
+            setShowPaywall(true);
+          } else {
+            setActiveTab(tab);
+          }
+        }}
+        isSubscribed={isSubscribed}
+      />
 
       {/* Modals */}
       <LogMealModal
@@ -358,7 +439,9 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <SubscriptionProvider>
+        <AppContent />
+      </SubscriptionProvider>
     </AuthProvider>
   );
 }

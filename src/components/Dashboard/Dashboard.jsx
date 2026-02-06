@@ -9,6 +9,9 @@ import {
   Zap,
   ChevronRight,
   Play,
+  Sparkles,
+  Clock,
+  Apple,
 } from 'lucide-react';
 import { Card, CardBody, Button, ProgressBar, ProgressWidget, ProgramOverview } from '../shared';
 import {
@@ -24,10 +27,12 @@ export function Dashboard({
   workouts,
   todaysMeals,
   todaysWorkouts,
+  isSubscribed = true,
   onLogMeal,
   onLogWorkout,
   onViewProgram,
   onViewNutrition,
+  onShowPaywall,
 }) {
   const { macros, bmr, tdee } = profile;
   const weightLbs = profile.weightUnit === 'kg'
@@ -160,6 +165,76 @@ export function Dashboard({
       </header>
 
       <div className="px-6 space-y-5">
+        {/* Program Summary Card - Quick overview at the top */}
+        <Card className="bg-gradient-to-br from-dark-800 to-dark-900 border-accent-primary/20">
+          <CardBody className="p-5">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-white mb-1">
+                  {program?.name || 'Your Program'}
+                </h2>
+                <p className="text-sm text-gray-400">
+                  {program?.totalWeeks} weeks • {program?.daysPerWeek} days/week • {program?.currentPhase || 'Base'} phase
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Daily Target</p>
+                <p className="text-2xl font-bold text-accent-primary">{macros?.calories || tdee}</p>
+                <p className="text-xs text-gray-500">kcal</p>
+              </div>
+            </div>
+
+            {/* Macro Targets Summary */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-dark-700/50 rounded-lg p-3 text-center">
+                <p className="text-lg font-bold text-blue-400">{macros?.protein || 0}g</p>
+                <p className="text-xs text-gray-500">Protein</p>
+              </div>
+              <div className="bg-dark-700/50 rounded-lg p-3 text-center">
+                <p className="text-lg font-bold text-amber-400">{macros?.carbs || 0}g</p>
+                <p className="text-xs text-gray-500">Carbs</p>
+              </div>
+              <div className="bg-dark-700/50 rounded-lg p-3 text-center">
+                <p className="text-lg font-bold text-purple-400">{macros?.fat || 0}g</p>
+                <p className="text-xs text-gray-500">Fat</p>
+              </div>
+            </div>
+
+            {/* Goal Summary */}
+            <div className="flex items-center gap-2 text-sm text-gray-400 bg-dark-700/30 rounded-lg p-3">
+              <Target className="w-4 h-4 text-accent-primary flex-shrink-0" />
+              <span>{getGoalMessage() || `${program?.primarySubtype || 'Training'} program with personalized progression`}</span>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* Meal Plan CTA - Only show when subscribed */}
+        {isSubscribed && (
+          <Card
+            hover
+            onClick={onViewNutrition}
+            className="bg-gradient-to-r from-accent-success/10 to-accent-primary/10 border-accent-success/30"
+          >
+            <CardBody className="p-5">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-accent-success/20 flex items-center justify-center">
+                  <Apple className="w-6 h-6 text-accent-success" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-white flex items-center gap-2">
+                    Create Your Meal Plan
+                    <Sparkles className="w-4 h-4 text-accent-primary" />
+                  </h3>
+                  <p className="text-sm text-gray-400">
+                    Get personalized recipes and a shopping list tailored to your goals
+                  </p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-500" />
+              </div>
+            </CardBody>
+          </Card>
+        )}
+
         {/* Energy Balance Card */}
         <Card hover onClick={onViewNutrition} className="overflow-hidden">
           <CardBody className="p-0">
