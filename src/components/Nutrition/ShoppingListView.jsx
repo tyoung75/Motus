@@ -1,13 +1,25 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, ShoppingCart, Check, Plus, Minus, ExternalLink, Search, Package, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Check, Plus, Minus, ExternalLink, Search, Package, ChevronDown, ChevronUp, Store, Info } from 'lucide-react';
 
-// Instacart affiliate link base
-const INSTACART_BASE_URL = 'https://www.instacart.com/store/search/';
+// Popular grocery retailers on Instacart
+const RETAILERS = [
+  { id: 'auto', name: 'Best Match', icon: '🏪', description: 'Instacart picks the best store for your items' },
+  { id: 'costco', name: 'Costco', icon: '🏬', slug: 'costco' },
+  { id: 'walmart', name: 'Walmart', icon: '🛒', slug: 'walmart' },
+  { id: 'kroger', name: 'Kroger', icon: '🥬', slug: 'kroger' },
+  { id: 'safeway', name: 'Safeway', icon: '🛍️', slug: 'safeway' },
+  { id: 'publix', name: 'Publix', icon: '🍎', slug: 'publix' },
+  { id: 'sprouts', name: 'Sprouts', icon: '🌱', slug: 'sprouts-farmers-market' },
+  { id: 'wholefoods', name: 'Whole Foods', icon: '🥗', slug: 'whole-foods-market' },
+  { id: 'target', name: 'Target', icon: '🎯', slug: 'target' },
+];
 
 export default function ShoppingListView({ mealPlan, recipes, onBack }) {
   const [checkedItems, setCheckedItems] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategories, setExpandedCategories] = useState({});
+  const [selectedRetailer, setSelectedRetailer] = useState('auto');
+  const [showRetailerPicker, setShowRetailerPicker] = useState(false);
 
   // Aggregate all ingredients from the meal plan
   const shoppingList = useMemo(() => {
@@ -125,17 +137,43 @@ export default function ShoppingListView({ mealPlan, recipes, onBack }) {
   const totalCount = shoppingList.length;
   const progress = totalCount > 0 ? (checkedCount / totalCount) * 100 : 0;
 
-  // Create Instacart cart with unchecked items
+  // Get the selected retailer details
+  const retailer = RETAILERS.find(r => r.id === selectedRetailer) || RETAILERS[0];
+
+  // Create Instacart shopping list URL
+  // Note: Full cart creation requires Instacart Developer Platform API
+  // For now, we create a search URL with retailer selection when possible
   const openInstacart = () => {
     const uncheckedItems = shoppingList.filter(item => !checkedItems[item.id]);
-    const searchTerms = uncheckedItems.map(item => item.name).join(', ');
-    // Open Instacart with search
-    window.open(`${INSTACART_BASE_URL}${encodeURIComponent(searchTerms)}`, '_blank');
+    const searchTerms = uncheckedItems.map(item => {
+      // Format: "amount unit name" for better search results
+      const amt = item.amount ? `${item.amount}` : '';
+      const unit = item.unit || '';
+      return `${amt} ${unit} ${item.name}`.trim();
+    }).join(', ');
+
+    // Build URL based on retailer selection
+    let url;
+    if (selectedRetailer === 'auto' || !retailer.slug) {
+      // General Instacart search
+      url = `https://www.instacart.com/store/search/${encodeURIComponent(searchTerms)}`;
+    } else {
+      // Specific retailer
+      url = `https://www.instacart.com/store/${retailer.slug}/search/${encodeURIComponent(searchTerms)}`;
+    }
+
+    window.open(url, '_blank');
   };
 
   // Create Instacart link for single item
   const openInstacartItem = (itemName) => {
-    window.open(`${INSTACART_BASE_URL}${encodeURIComponent(itemName)}`, '_blank');
+    let url;
+    if (selectedRetailer === 'auto' || !retailer.slug) {
+      url = `https://www.instacart.com/store/search/${encodeURIComponent(itemName)}`;
+    } else {
+      url = `https://www.instacart.com/store/${retailer.slug}/search/${encodeURIComponent(itemName)}`;
+    }
+    window.open(url, '_blank');
   };
 
   return (
@@ -265,8 +303,59 @@ export default function ShoppingListView({ mealPlan, recipes, onBack }) {
         )}
       </div>
 
+      {/* Retailer Picker Modal */}
+      {showRetailerPicker && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={() => setShowRetailerPicker(false)}>
+          <div className="w-full max-w-lg bg-dark-800 rounded-t-2xl p-4 pb-8" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Choose Your Store</h3>
+              <button onClick={() => setShowRetailerPicker(false)} className="text-gray-400 text-sm">Done</button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {RETAILERS.map(r => (
+                <button
+                  key={r.id}
+                  onClick={() => {
+                    setSelectedRetailer(r.id);
+                    setShowRetailerPicker(false);
+                  }}
+                  className={`p-3 rounded-xl border text-center transition-all ${
+                    selectedRetailer === r.id
+                      ? 'bg-[#43B02A]/20 border-[#43B02A] text-white'
+                      : 'bg-dark-700 border-dark-600 text-gray-400'
+                  }`}
+                >
+                  <span className="text-2xl block mb-1">{r.icon}</span>
+                  <span className="text-xs">{r.name}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-4 flex items-start gap-2">
+              <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              Cart creation opens Instacart with your items pre-searched. Add items to cart from search results.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Instacart CTA */}
       <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-dark-900 via-dark-900 to-transparent">
+        {/* Retailer selector */}
+        <button
+          onClick={() => setShowRetailerPicker(true)}
+          className="w-full mb-2 py-2 px-4 bg-dark-700 rounded-lg flex items-center justify-between text-sm"
+        >
+          <span className="flex items-center gap-2 text-gray-300">
+            <Store className="w-4 h-4" />
+            Delivering from:
+          </span>
+          <span className="flex items-center gap-2 text-white font-medium">
+            <span>{retailer.icon}</span>
+            {retailer.name}
+            <ChevronDown className="w-4 h-4 text-gray-400" />
+          </span>
+        </button>
+
         <button
           onClick={openInstacart}
           className="w-full py-4 bg-[#43B02A] hover:bg-[#3a9a24] text-white font-semibold rounded-xl flex items-center justify-center gap-3 shadow-lg transition-colors"

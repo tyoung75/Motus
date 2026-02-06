@@ -27,84 +27,116 @@ import {
 } from './lib/database';
 
 // Generate mock meal plan for testing without API calls
+// This creates a plan that EXACTLY hits daily macro targets
 const generateMockMealPlan = (preferences, profile) => {
   const targetCalories = preferences.adjustedCalories || profile?.macros?.calories || 2000;
   const targetProtein = profile?.macros?.protein || 150;
   const mealsPerDay = preferences.mealsPerDay || 3;
   const snacksPerDay = preferences.snacksPerDay || 1;
 
-  // Calculate target macros
+  // Calculate target macros (these MUST be hit exactly)
   const proteinCals = targetProtein * 4;
   const remainingCals = targetCalories - proteinCals;
   const targetCarbs = Math.round((remainingCals * 0.55) / 4);
   const targetFat = Math.round((remainingCals * 0.45) / 9);
 
-  // Calorie distribution per meal type (percentages)
-  const mealDistribution = {
-    2: { breakfast: 0.40, dinner: 0.60 },
-    3: { breakfast: 0.25, lunch: 0.35, dinner: 0.40 },
-    4: { breakfast: 0.20, lunch: 0.30, snack: 0.15, dinner: 0.35 }
+  // Meal distribution percentages (must sum to 1.0)
+  const getMealDistribution = () => {
+    const totalSlots = mealsPerDay + snacksPerDay;
+    // Breakfast: 20-25%, Lunch: 30-35%, Dinner: 35-40%, Snacks: 8-12% each
+    if (mealsPerDay === 2) {
+      const snackPct = snacksPerDay > 0 ? 0.10 : 0;
+      return { breakfast: 0.35 - (snackPct * snacksPerDay / 2), dinner: 0.65 - (snackPct * snacksPerDay / 2), snack: snackPct };
+    } else if (mealsPerDay === 3) {
+      const snackPct = snacksPerDay > 0 ? 0.08 : 0;
+      const mainMealTotal = 1 - (snackPct * snacksPerDay);
+      return { breakfast: mainMealTotal * 0.25, lunch: mainMealTotal * 0.35, dinner: mainMealTotal * 0.40, snack: snackPct };
+    } else {
+      const snackPct = snacksPerDay > 0 ? 0.08 : 0;
+      const mainMealTotal = 1 - (snackPct * snacksPerDay);
+      return { breakfast: mainMealTotal * 0.22, lunch: mainMealTotal * 0.33, dinner: mainMealTotal * 0.45, snack: snackPct };
+    }
   };
-  const snackCaloriePercent = snacksPerDay > 0 ? 0.10 / snacksPerDay : 0; // 10% total for snacks
 
-  // Base meals (will be scaled to hit targets)
-  const baseMeals = {
+  const dist = getMealDistribution();
+
+  // Meal templates with realistic ingredient bases
+  const mealTemplates = {
     breakfast: [
-      { id: 'b1', title: 'Greek Yogurt Parfait', baseCal: 400, proteinRatio: 0.25, carbRatio: 0.50, fatRatio: 0.25, readyInMinutes: 5 },
-      { id: 'b2', title: 'Avocado Toast with Eggs', baseCal: 450, proteinRatio: 0.22, carbRatio: 0.40, fatRatio: 0.38, readyInMinutes: 15 },
-      { id: 'b3', title: 'Protein Oatmeal Bowl', baseCal: 420, proteinRatio: 0.28, carbRatio: 0.55, fatRatio: 0.17, readyInMinutes: 10 },
-      { id: 'b4', title: 'Veggie Egg Scramble', baseCal: 380, proteinRatio: 0.30, carbRatio: 0.25, fatRatio: 0.45, readyInMinutes: 12 },
-      { id: 'b5', title: 'Smoothie Bowl', baseCal: 400, proteinRatio: 0.20, carbRatio: 0.60, fatRatio: 0.20, readyInMinutes: 8 },
-      { id: 'b6', title: 'Overnight Oats', baseCal: 420, proteinRatio: 0.18, carbRatio: 0.58, fatRatio: 0.24, readyInMinutes: 5 },
-      { id: 'b7', title: 'Breakfast Burrito', baseCal: 500, proteinRatio: 0.25, carbRatio: 0.45, fatRatio: 0.30, readyInMinutes: 15 },
+      { id: 'b1', title: 'Greek Yogurt Parfait', baseIngredients: ['Greek yogurt', 'granola', 'mixed berries', 'honey'], readyInMinutes: 5 },
+      { id: 'b2', title: 'Avocado Toast with Eggs', baseIngredients: ['whole grain bread', 'avocado', 'eggs', 'olive oil'], readyInMinutes: 15 },
+      { id: 'b3', title: 'Protein Oatmeal Bowl', baseIngredients: ['oats', 'protein powder', 'almond milk', 'banana', 'almond butter'], readyInMinutes: 10 },
+      { id: 'b4', title: 'Veggie Egg Scramble', baseIngredients: ['eggs', 'spinach', 'bell peppers', 'cheese', 'olive oil'], readyInMinutes: 12 },
+      { id: 'b5', title: 'Smoothie Bowl', baseIngredients: ['protein powder', 'frozen berries', 'banana', 'almond milk', 'chia seeds'], readyInMinutes: 8 },
+      { id: 'b6', title: 'Overnight Oats', baseIngredients: ['oats', 'Greek yogurt', 'milk', 'maple syrup', 'walnuts'], readyInMinutes: 5 },
+      { id: 'b7', title: 'Breakfast Burrito', baseIngredients: ['eggs', 'black beans', 'cheese', 'whole wheat tortilla', 'salsa'], readyInMinutes: 15 },
     ],
     lunch: [
-      { id: 'l1', title: 'Grilled Chicken Salad', baseCal: 500, proteinRatio: 0.35, carbRatio: 0.25, fatRatio: 0.40, readyInMinutes: 20 },
-      { id: 'l2', title: 'Quinoa Buddha Bowl', baseCal: 550, proteinRatio: 0.18, carbRatio: 0.55, fatRatio: 0.27, readyInMinutes: 25 },
-      { id: 'l3', title: 'Turkey & Avocado Wrap', baseCal: 520, proteinRatio: 0.28, carbRatio: 0.40, fatRatio: 0.32, readyInMinutes: 10 },
-      { id: 'l4', title: 'Salmon Poke Bowl', baseCal: 580, proteinRatio: 0.28, carbRatio: 0.42, fatRatio: 0.30, readyInMinutes: 15 },
-      { id: 'l5', title: 'Mediterranean Plate', baseCal: 520, proteinRatio: 0.22, carbRatio: 0.45, fatRatio: 0.33, readyInMinutes: 15 },
-      { id: 'l6', title: 'Asian Chicken Stir Fry', baseCal: 500, proteinRatio: 0.30, carbRatio: 0.40, fatRatio: 0.30, readyInMinutes: 20 },
-      { id: 'l7', title: 'Black Bean Tacos', baseCal: 480, proteinRatio: 0.18, carbRatio: 0.55, fatRatio: 0.27, readyInMinutes: 15 },
+      { id: 'l1', title: 'Grilled Chicken Salad', baseIngredients: ['chicken breast', 'mixed greens', 'cherry tomatoes', 'feta cheese', 'olive oil'], readyInMinutes: 20 },
+      { id: 'l2', title: 'Quinoa Buddha Bowl', baseIngredients: ['quinoa', 'chickpeas', 'roasted vegetables', 'tahini', 'avocado'], readyInMinutes: 25 },
+      { id: 'l3', title: 'Turkey & Avocado Wrap', baseIngredients: ['turkey breast', 'avocado', 'whole wheat wrap', 'lettuce', 'tomato'], readyInMinutes: 10 },
+      { id: 'l4', title: 'Salmon Poke Bowl', baseIngredients: ['salmon', 'sushi rice', 'edamame', 'cucumber', 'sesame oil'], readyInMinutes: 15 },
+      { id: 'l5', title: 'Mediterranean Plate', baseIngredients: ['chicken', 'hummus', 'pita bread', 'cucumber', 'olives'], readyInMinutes: 15 },
+      { id: 'l6', title: 'Asian Chicken Stir Fry', baseIngredients: ['chicken breast', 'brown rice', 'broccoli', 'soy sauce', 'sesame oil'], readyInMinutes: 20 },
+      { id: 'l7', title: 'Black Bean Tacos', baseIngredients: ['black beans', 'corn tortillas', 'avocado', 'cheese', 'salsa'], readyInMinutes: 15 },
     ],
     dinner: [
-      { id: 'd1', title: 'Herb Crusted Salmon', baseCal: 620, proteinRatio: 0.32, carbRatio: 0.25, fatRatio: 0.43, readyInMinutes: 30 },
-      { id: 'd2', title: 'Lean Beef Stir Fry', baseCal: 580, proteinRatio: 0.30, carbRatio: 0.35, fatRatio: 0.35, readyInMinutes: 25 },
-      { id: 'd3', title: 'Grilled Chicken & Veggies', baseCal: 550, proteinRatio: 0.38, carbRatio: 0.30, fatRatio: 0.32, readyInMinutes: 35 },
-      { id: 'd4', title: 'Shrimp Pasta Primavera', baseCal: 600, proteinRatio: 0.22, carbRatio: 0.50, fatRatio: 0.28, readyInMinutes: 30 },
-      { id: 'd5', title: 'Turkey Meatballs & Zoodles', baseCal: 520, proteinRatio: 0.35, carbRatio: 0.25, fatRatio: 0.40, readyInMinutes: 35 },
-      { id: 'd6', title: 'Baked Cod with Quinoa', baseCal: 540, proteinRatio: 0.32, carbRatio: 0.42, fatRatio: 0.26, readyInMinutes: 30 },
-      { id: 'd7', title: 'Chicken Tikka Masala', baseCal: 620, proteinRatio: 0.28, carbRatio: 0.40, fatRatio: 0.32, readyInMinutes: 40 },
+      { id: 'd1', title: 'Herb Crusted Salmon', baseIngredients: ['salmon fillet', 'quinoa', 'asparagus', 'olive oil', 'lemon'], readyInMinutes: 30 },
+      { id: 'd2', title: 'Lean Beef Stir Fry', baseIngredients: ['lean beef', 'brown rice', 'mixed vegetables', 'soy sauce', 'ginger'], readyInMinutes: 25 },
+      { id: 'd3', title: 'Grilled Chicken & Veggies', baseIngredients: ['chicken breast', 'sweet potato', 'broccoli', 'olive oil', 'garlic'], readyInMinutes: 35 },
+      { id: 'd4', title: 'Shrimp Pasta Primavera', baseIngredients: ['shrimp', 'whole wheat pasta', 'zucchini', 'tomatoes', 'parmesan'], readyInMinutes: 30 },
+      { id: 'd5', title: 'Turkey Meatballs & Zoodles', baseIngredients: ['ground turkey', 'zucchini', 'marinara sauce', 'parmesan', 'olive oil'], readyInMinutes: 35 },
+      { id: 'd6', title: 'Baked Cod with Quinoa', baseIngredients: ['cod fillet', 'quinoa', 'spinach', 'cherry tomatoes', 'olive oil'], readyInMinutes: 30 },
+      { id: 'd7', title: 'Chicken Tikka Masala', baseIngredients: ['chicken breast', 'basmati rice', 'tikka sauce', 'Greek yogurt', 'naan'], readyInMinutes: 40 },
     ],
     snack: [
-      { id: 's1', title: 'Protein Shake', baseCal: 200, proteinRatio: 0.50, carbRatio: 0.30, fatRatio: 0.20, readyInMinutes: 2 },
-      { id: 's2', title: 'Apple & Almond Butter', baseCal: 250, proteinRatio: 0.12, carbRatio: 0.50, fatRatio: 0.38, readyInMinutes: 2 },
-      { id: 's3', title: 'Greek Yogurt & Berries', baseCal: 180, proteinRatio: 0.35, carbRatio: 0.45, fatRatio: 0.20, readyInMinutes: 2 },
-      { id: 's4', title: 'Trail Mix', baseCal: 220, proteinRatio: 0.12, carbRatio: 0.45, fatRatio: 0.43, readyInMinutes: 1 },
-      { id: 's5', title: 'Cottage Cheese & Fruit', baseCal: 200, proteinRatio: 0.40, carbRatio: 0.40, fatRatio: 0.20, readyInMinutes: 2 },
-      { id: 's6', title: 'Hummus & Veggies', baseCal: 170, proteinRatio: 0.15, carbRatio: 0.50, fatRatio: 0.35, readyInMinutes: 3 },
-      { id: 's7', title: 'Protein Bar', baseCal: 230, proteinRatio: 0.35, carbRatio: 0.45, fatRatio: 0.20, readyInMinutes: 1 },
+      { id: 's1', title: 'Protein Shake', baseIngredients: ['protein powder', 'almond milk', 'banana'], readyInMinutes: 2 },
+      { id: 's2', title: 'Apple & Almond Butter', baseIngredients: ['apple', 'almond butter'], readyInMinutes: 2 },
+      { id: 's3', title: 'Greek Yogurt & Berries', baseIngredients: ['Greek yogurt', 'mixed berries', 'honey'], readyInMinutes: 2 },
+      { id: 's4', title: 'Trail Mix', baseIngredients: ['mixed nuts', 'dried fruit', 'dark chocolate chips'], readyInMinutes: 1 },
+      { id: 's5', title: 'Cottage Cheese & Fruit', baseIngredients: ['cottage cheese', 'pineapple', 'walnuts'], readyInMinutes: 2 },
+      { id: 's6', title: 'Hummus & Veggies', baseIngredients: ['hummus', 'carrots', 'celery', 'bell peppers'], readyInMinutes: 3 },
+      { id: 's7', title: 'Protein Bar', baseIngredients: ['protein bar'], readyInMinutes: 1 },
     ]
   };
 
-  // Helper to scale meal to target calories
-  const scaleMeal = (baseMeal, targetCals) => {
-    const scale = targetCals / baseMeal.baseCal;
+  // Create a meal with EXACT macros for target
+  const createMealWithExactMacros = (template, calories, protein, carbs, fat) => {
     return {
-      ...baseMeal,
-      calories: Math.round(targetCals),
-      protein: Math.round((targetCals * baseMeal.proteinRatio) / 4),
-      carbs: Math.round((targetCals * baseMeal.carbRatio) / 4),
-      fat: Math.round((targetCals * baseMeal.fatRatio) / 9),
+      id: template.id,
+      title: template.title,
+      calories,
+      protein,
+      carbs,
+      fat,
+      readyInMinutes: template.readyInMinutes,
+      image: null,
     };
   };
 
-  // Sample recipe details
-  const recipeDetails = {
-    b1: { ingredients: [{ original: '1 cup Greek yogurt' }, { original: '1/2 cup granola' }, { original: '1/2 cup mixed berries' }, { original: '1 tbsp honey' }], instructions: ['Layer yogurt in a bowl', 'Add granola', 'Top with berries and honey'] },
-    b2: { ingredients: [{ original: '2 slices whole grain bread' }, { original: '1 avocado' }, { original: '2 eggs' }, { original: 'Salt and pepper to taste' }], instructions: ['Toast bread', 'Mash avocado and spread on toast', 'Fry eggs to preference', 'Place eggs on toast, season'] },
-    l1: { ingredients: [{ original: '6oz grilled chicken breast' }, { original: '4 cups mixed greens' }, { original: '1/2 cup cherry tomatoes' }, { original: '1/4 cup feta cheese' }, { original: '2 tbsp olive oil dressing' }], instructions: ['Grill chicken and slice', 'Arrange greens on plate', 'Top with chicken, tomatoes, feta', 'Drizzle with dressing'] },
-    d1: { ingredients: [{ original: '6oz salmon fillet' }, { original: '2 tbsp herb mixture' }, { original: '1 cup roasted vegetables' }, { original: '1/2 cup quinoa' }], instructions: ['Preheat oven to 400°F', 'Coat salmon with herbs', 'Bake 15-18 minutes', 'Serve with vegetables and quinoa'] },
+  // Generate ingredient list based on macros (scaled portions)
+  const generateIngredients = (template, protein, carbs, fat) => {
+    // Scale ingredient quantities to match macros
+    const proteinOz = Math.round(protein / 7 * 10) / 10; // ~7g protein per oz of meat
+    const carbCups = Math.round(carbs / 40 * 10) / 10; // ~40g carbs per cup of grains
+    const fatTbsp = Math.round(fat / 14 * 10) / 10; // ~14g fat per tbsp oil
+
+    return template.baseIngredients.map((ing, idx) => {
+      // First ingredient is usually protein source
+      if (idx === 0 && ['chicken', 'salmon', 'beef', 'turkey', 'shrimp', 'cod', 'eggs'].some(p => ing.includes(p))) {
+        return { original: `${proteinOz}oz ${ing}`, name: ing, amount: proteinOz, unit: 'oz' };
+      }
+      // Second ingredient is often carb source
+      if (idx === 1 && ['rice', 'quinoa', 'pasta', 'oats', 'bread', 'tortilla'].some(c => ing.includes(c))) {
+        return { original: `${carbCups} cup ${ing}`, name: ing, amount: carbCups, unit: 'cup' };
+      }
+      // Fat sources
+      if (['olive oil', 'avocado', 'almond butter', 'cheese'].some(f => ing.includes(f))) {
+        return { original: `${fatTbsp} tbsp ${ing}`, name: ing, amount: fatTbsp, unit: 'tbsp' };
+      }
+      // Default portions for vegetables and other items
+      return { original: `1 cup ${ing}`, name: ing, amount: 1, unit: 'cup' };
+    });
   };
 
   const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -113,97 +145,138 @@ const generateMockMealPlan = (preferences, profile) => {
   const mealPlan = { week: {} };
   const recipes = {};
 
-  // Get distribution for this meal count
-  const dist = mealDistribution[mealsPerDay] || mealDistribution[3];
-
   days.forEach((day, dayIndex) => {
     const dayId = dayIds[dayIndex];
     const dayMeals = [];
-    let dayCalories = 0;
-    let dayProtein = 0;
-    let dayCarbs = 0;
-    let dayFat = 0;
     let mealIndex = 0;
 
-    // Calculate calories available for main meals (subtract snack calories)
-    const snackTotalPercent = snacksPerDay * snackCaloriePercent;
-    const mainMealCalories = targetCalories * (1 - snackTotalPercent);
-
-    // Add main meals based on mealsPerDay
+    // Count non-excluded meals for this day
     const mealTypes = mealsPerDay === 2 ? ['breakfast', 'dinner'] :
                       mealsPerDay === 3 ? ['breakfast', 'lunch', 'dinner'] :
-                      ['breakfast', 'lunch', 'snack', 'dinner'];
+                      ['breakfast', 'lunch', 'dinner'];
 
+    let includedMeals = [];
+    let includedSnacks = [];
+
+    // Check which meals are included
     mealTypes.forEach((type) => {
-      // Check if this meal is excluded
       const isExcluded = preferences.excludedMeals?.[`${dayId}-${mealIndex}`];
-      mealIndex++;
-
-      if (!isExcluded && type !== 'snack') {
-        const mealOptions = baseMeals[type] || baseMeals.lunch;
-        const baseMeal = mealOptions[dayIndex % mealOptions.length];
-
-        // Calculate target calories for this meal type
-        const mealTargetCals = Math.round(mainMealCalories * (dist[type] || 0.33));
-        const scaledMeal = scaleMeal(baseMeal, mealTargetCals);
-
-        dayMeals.push({ ...scaledMeal, type, image: null });
-        dayCalories += scaledMeal.calories;
-        dayProtein += scaledMeal.protein;
-        dayCarbs += scaledMeal.carbs;
-        dayFat += scaledMeal.fat;
-
-        // Add recipe details
-        const mealWithRecipe = { ...scaledMeal, image: null };
-        if (recipeDetails[baseMeal.id]) {
-          recipes[baseMeal.id] = { ...mealWithRecipe, ...recipeDetails[baseMeal.id] };
-        } else {
-          recipes[baseMeal.id] = {
-            ...mealWithRecipe,
-            ingredients: [
-              { original: 'Lean protein source' },
-              { original: 'Complex carbohydrates' },
-              { original: 'Healthy fats' },
-              { original: 'Fresh vegetables' }
-            ],
-            instructions: ['Prep all ingredients', 'Cook protein to desired doneness', 'Combine and serve']
-          };
-        }
+      if (!isExcluded) {
+        includedMeals.push({ type, mealIndex });
       }
+      mealIndex++;
+    });
+
+    for (let i = 0; i < snacksPerDay; i++) {
+      const isExcluded = preferences.excludedMeals?.[`${dayId}-${mealIndex}`];
+      if (!isExcluded) {
+        includedSnacks.push({ type: 'snack', mealIndex, snackIndex: i });
+      }
+      mealIndex++;
+    }
+
+    // Calculate exact macros per meal to hit daily targets
+    const totalMealSlots = includedMeals.length + includedSnacks.length;
+    if (totalMealSlots === 0) {
+      mealPlan.week[day] = { meals: [], nutrients: { calories: 0, protein: 0, carbohydrates: 0, fat: 0 } };
+      return;
+    }
+
+    // Distribute daily macros across meals proportionally
+    // Main meals get more, snacks get less
+    const mainMealWeight = 1.0;
+    const snackWeight = 0.3;
+    const totalWeight = (includedMeals.length * mainMealWeight) + (includedSnacks.length * snackWeight);
+
+    // Calculate per-meal macros that sum to EXACTLY the daily targets
+    let runningCals = 0, runningProtein = 0, runningCarbs = 0, runningFat = 0;
+
+    // Add main meals
+    includedMeals.forEach((meal, idx) => {
+      const isLastMainMeal = idx === includedMeals.length - 1 && includedSnacks.length === 0;
+      const weight = mainMealWeight / totalWeight;
+
+      // Calculate this meal's macros
+      let mealCals, mealProtein, mealCarbs, mealFat;
+
+      if (isLastMainMeal) {
+        // Last meal gets the remainder to ensure we hit EXACT targets
+        mealCals = targetCalories - runningCals;
+        mealProtein = targetProtein - runningProtein;
+        mealCarbs = targetCarbs - runningCarbs;
+        mealFat = targetFat - runningFat;
+      } else {
+        mealCals = Math.round(targetCalories * weight);
+        mealProtein = Math.round(targetProtein * weight);
+        mealCarbs = Math.round(targetCarbs * weight);
+        mealFat = Math.round(targetFat * weight);
+      }
+
+      runningCals += mealCals;
+      runningProtein += mealProtein;
+      runningCarbs += mealCarbs;
+      runningFat += mealFat;
+
+      const template = mealTemplates[meal.type][dayIndex % mealTemplates[meal.type].length];
+      const scaledMeal = createMealWithExactMacros(template, mealCals, mealProtein, mealCarbs, mealFat);
+      scaledMeal.type = meal.type;
+
+      dayMeals.push(scaledMeal);
+
+      // Generate recipe with scaled ingredients
+      recipes[template.id] = {
+        ...scaledMeal,
+        ingredients: generateIngredients(template, mealProtein, mealCarbs, mealFat),
+        instructions: ['Prep all ingredients to specified portions', 'Cook protein to desired doneness', 'Combine all components', 'Season to taste and serve']
+      };
     });
 
     // Add snacks
-    for (let i = 0; i < snacksPerDay; i++) {
-      const isExcluded = preferences.excludedMeals?.[`${dayId}-${mealIndex}`];
-      mealIndex++;
+    includedSnacks.forEach((snack, idx) => {
+      const isLastMeal = idx === includedSnacks.length - 1;
+      const weight = snackWeight / totalWeight;
 
-      if (!isExcluded) {
-        const baseMeal = baseMeals.snack[(dayIndex + i) % baseMeals.snack.length];
-        const snackTargetCals = Math.round(targetCalories * snackCaloriePercent);
-        const scaledSnack = scaleMeal(baseMeal, snackTargetCals);
+      let snackCals, snackProtein, snackCarbs, snackFat;
 
-        dayMeals.push({ ...scaledSnack, type: 'snack', image: null });
-        dayCalories += scaledSnack.calories;
-        dayProtein += scaledSnack.protein;
-        dayCarbs += scaledSnack.carbs;
-        dayFat += scaledSnack.fat;
-
-        recipes[baseMeal.id] = {
-          ...scaledSnack,
-          image: null,
-          ingredients: [{ original: 'Quick, nutritious snack' }],
-          instructions: ['Enjoy between meals for sustained energy!']
-        };
+      if (isLastMeal) {
+        // Last snack gets remainder
+        snackCals = targetCalories - runningCals;
+        snackProtein = targetProtein - runningProtein;
+        snackCarbs = targetCarbs - runningCarbs;
+        snackFat = targetFat - runningFat;
+      } else {
+        snackCals = Math.round(targetCalories * weight);
+        snackProtein = Math.round(targetProtein * weight);
+        snackCarbs = Math.round(targetCarbs * weight);
+        snackFat = Math.round(targetFat * weight);
       }
-    }
 
+      runningCals += snackCals;
+      runningProtein += snackProtein;
+      runningCarbs += snackCarbs;
+      runningFat += snackFat;
+
+      const template = mealTemplates.snack[(dayIndex + snack.snackIndex) % mealTemplates.snack.length];
+      const scaledSnack = createMealWithExactMacros(template, snackCals, snackProtein, snackCarbs, snackFat);
+      scaledSnack.type = 'snack';
+
+      dayMeals.push(scaledSnack);
+
+      recipes[template.id] = {
+        ...scaledSnack,
+        ingredients: generateIngredients(template, snackProtein, snackCarbs, snackFat),
+        instructions: ['Quick, nutritious snack - enjoy!']
+      };
+    });
+
+    // Day nutrients should EXACTLY match targets (for non-excluded meals)
     mealPlan.week[day] = {
       meals: dayMeals,
       nutrients: {
-        calories: dayCalories,
-        protein: dayProtein,
-        carbohydrates: dayCarbs,
-        fat: dayFat
+        calories: runningCals,
+        protein: runningProtein,
+        carbohydrates: runningCarbs,
+        fat: runningFat
       }
     };
   });
