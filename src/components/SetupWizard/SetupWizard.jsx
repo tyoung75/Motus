@@ -448,6 +448,7 @@ function SetupWizard({ onComplete }) {
     }
   };
 
+  // Pure validation function - NO state updates! Called during render.
   const validateGoalDetails = () => {
     if (formData.programType === 'endurance') {
       if (formData.programSubtype === 'running') {
@@ -462,53 +463,12 @@ function SetupWizard({ onComplete }) {
       const strengthGoals = formData.strengthGoals || [];
       const hasAtLeastOneGoal = strengthGoals.some(g => g.current && g.target);
       if (!hasAtLeastOneGoal) {
-        setStrengthGoalError(null);
         return false;
       }
-
-      // Check if goals are realistic (max 10lbs/week increase)
-      // Need a goal date to calculate
       if (!formData.strengthGoalDate) {
-        setStrengthGoalError(null);
         return false;
       }
-
-      const today = new Date();
-      const goalDate = new Date(formData.strengthGoalDate);
-      const weeksUntilGoal = Math.max(1, Math.ceil((goalDate - today) / (1000 * 60 * 60 * 24 * 7)));
-
-      // Check each lift for realistic progression
-      const unrealisticLifts = [];
-      strengthGoals.forEach(goal => {
-        if (goal.current && goal.target) {
-          const current = parseFloat(goal.current);
-          const target = parseFloat(goal.target);
-          const totalIncrease = target - current;
-          const weeklyIncrease = totalIncrease / weeksUntilGoal;
-
-          // >10lbs/week is unrealistic for any lift
-          if (weeklyIncrease > 10) {
-            unrealisticLifts.push({
-              lift: goal.label,
-              weeklyIncrease: weeklyIncrease.toFixed(1),
-              totalIncrease,
-              weeks: weeksUntilGoal,
-            });
-          }
-        }
-      });
-
-      if (unrealisticLifts.length > 0) {
-        const errorMsg = unrealisticLifts.map(l =>
-          `${l.lift}: ${l.totalIncrease}lbs in ${l.weeks} weeks = ${l.weeklyIncrease}lbs/week`
-        ).join('\n');
-        setStrengthGoalError(
-          `Your strength goals are not realistic. A maximum of ~10lbs/week 1RM increase is possible with optimal training.\n\n${errorMsg}\n\nPlease extend your goal date or reduce your targets.`
-        );
-        return false;
-      }
-
-      setStrengthGoalError(null);
+      // Just check if form is complete - realistic check happens in effect
       return true;
     }
     if (formData.programType === 'aesthetic') {
@@ -519,6 +479,58 @@ function SetupWizard({ onComplete }) {
     }
     return true;
   };
+
+  // Effect to validate strength goals and set error state (NOT during render)
+  useEffect(() => {
+    if (formData.programType !== 'strength') {
+      setStrengthGoalError(null);
+      return;
+    }
+
+    const strengthGoals = formData.strengthGoals || [];
+    const hasAtLeastOneGoal = strengthGoals.some(g => g.current && g.target);
+
+    if (!hasAtLeastOneGoal || !formData.strengthGoalDate) {
+      setStrengthGoalError(null);
+      return;
+    }
+
+    const today = new Date();
+    const goalDate = new Date(formData.strengthGoalDate);
+    const weeksUntilGoal = Math.max(1, Math.ceil((goalDate - today) / (1000 * 60 * 60 * 24 * 7)));
+
+    // Check each lift for realistic progression
+    const unrealisticLifts = [];
+    strengthGoals.forEach(goal => {
+      if (goal.current && goal.target) {
+        const current = parseFloat(goal.current);
+        const target = parseFloat(goal.target);
+        const totalIncrease = target - current;
+        const weeklyIncrease = totalIncrease / weeksUntilGoal;
+
+        // >10lbs/week is unrealistic for any lift
+        if (weeklyIncrease > 10) {
+          unrealisticLifts.push({
+            lift: goal.label,
+            weeklyIncrease: weeklyIncrease.toFixed(1),
+            totalIncrease,
+            weeks: weeksUntilGoal,
+          });
+        }
+      }
+    });
+
+    if (unrealisticLifts.length > 0) {
+      const errorMsg = unrealisticLifts.map(l =>
+        `${l.lift}: ${l.totalIncrease}lbs in ${l.weeks} weeks = ${l.weeklyIncrease}lbs/week`
+      ).join('\n');
+      setStrengthGoalError(
+        `Your strength goals are not realistic. A maximum of ~10lbs/week 1RM increase is possible with optimal training.\n\n${errorMsg}\n\nPlease extend your goal date or reduce your targets.`
+      );
+    } else {
+      setStrengthGoalError(null);
+    }
+  }, [formData.programType, formData.strengthGoals, formData.strengthGoalDate]);
 
   // Handle test mode activation (5 taps on logo OR Ctrl+Shift+T)
   const handleLogoTap = (e) => {
