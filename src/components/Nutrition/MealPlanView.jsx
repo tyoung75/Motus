@@ -1,12 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Calendar, ChevronLeft, ChevronRight, Clock, Flame, Dumbbell, RefreshCw, ShoppingCart, ChefHat, ExternalLink } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Clock, Flame, Dumbbell, RefreshCw, ShoppingCart, ChefHat, ExternalLink, Sparkles, Leaf } from 'lucide-react';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'];
 
+// Brief health benefits for meal types
+const MEAL_BENEFITS = {
+  breakfast: 'Kickstarts metabolism, stabilizes blood sugar for sustained energy.',
+  lunch: 'Refuels glycogen stores, provides sustained afternoon energy.',
+  dinner: 'Supports overnight muscle repair and recovery.',
+  snack: 'Maintains blood sugar, prevents overeating at meals.'
+};
+
 export default function MealPlanView({ mealPlan, recipes, profile, onBack, onRegenerateMeal, onOpenShoppingList }) {
   const [selectedDay, setSelectedDay] = useState(0);
   const [expandedMeal, setExpandedMeal] = useState(null);
+  const [showSummary, setShowSummary] = useState(true);
 
   if (!mealPlan) {
     return (
@@ -27,13 +36,18 @@ export default function MealPlanView({ mealPlan, recipes, profile, onBack, onReg
 
   const targetCalories = profile?.macros?.calories || 2000;
   const targetProtein = profile?.macros?.protein || 150;
+  // Calculate carb and fat targets from remaining calories
+  const proteinCals = targetProtein * 4;
+  const remainingCals = targetCalories - proteinCals;
+  const targetCarbs = Math.round((remainingCals * 0.55) / 4); // 55% of remaining to carbs
+  const targetFat = Math.round((remainingCals * 0.45) / 9); // 45% of remaining to fat
 
   const getMealByType = (type) => dayMeals.find(m => m.type === type);
 
   const getRecipeDetails = (mealId) => recipes?.[mealId] || null;
 
   return (
-    <div className="min-h-screen bg-dark-900 pb-24">
+    <div className="min-h-screen bg-dark-900 pb-40">
       {/* Header */}
       <div className="bg-dark-800 border-b border-dark-700 sticky top-0 z-10">
         <div className="p-4">
@@ -93,35 +107,51 @@ export default function MealPlanView({ mealPlan, recipes, profile, onBack, onReg
 
         {/* Daily Summary */}
         <div className="px-4 pb-4">
-          <div className="bg-dark-700 rounded-xl p-3 flex items-center justify-around">
+          <div className="bg-dark-700 rounded-xl p-3 grid grid-cols-4 gap-2">
             <div className="text-center">
               <div className="flex items-center justify-center gap-1 text-accent-primary">
                 <Flame className="w-4 h-4" />
                 <span className="font-bold">{dayNutrients.calories || '—'}</span>
               </div>
-              <p className="text-xs text-gray-400">/ {targetCalories} cal</p>
+              <p className="text-xs text-gray-400">/ {targetCalories}</p>
             </div>
-            <div className="w-px h-8 bg-dark-600" />
             <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-accent-secondary">
+              <div className="flex items-center justify-center gap-1 text-accent-success">
                 <Dumbbell className="w-4 h-4" />
                 <span className="font-bold">{dayNutrients.protein || '—'}g</span>
               </div>
-              <p className="text-xs text-gray-400">/ {targetProtein}g protein</p>
+              <p className="text-xs text-gray-400">/ {targetProtein}g</p>
             </div>
-            <div className="w-px h-8 bg-dark-600" />
             <div className="text-center">
-              <div className="font-bold text-white">{dayNutrients.carbohydrates || '—'}g</div>
-              <p className="text-xs text-gray-400">carbs</p>
+              <div className="font-bold text-accent-warning">{dayNutrients.carbohydrates || '—'}g</div>
+              <p className="text-xs text-gray-400">/ {targetCarbs}g</p>
             </div>
-            <div className="w-px h-8 bg-dark-600" />
             <div className="text-center">
-              <div className="font-bold text-white">{dayNutrients.fat || '—'}g</div>
-              <p className="text-xs text-gray-400">fat</p>
+              <div className="font-bold text-accent-secondary">{dayNutrients.fat || '—'}g</div>
+              <p className="text-xs text-gray-400">/ {targetFat}g</p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Summary Section - Why these meals */}
+      {showSummary && (
+        <div className="mx-4 mb-4 p-4 bg-gradient-to-r from-accent-primary/10 to-accent-secondary/10 rounded-xl border border-dark-600">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-accent-primary" />
+              <h3 className="text-sm font-medium text-white">Why This Plan</h3>
+            </div>
+            <button onClick={() => setShowSummary(false)} className="text-xs text-gray-500">Hide</button>
+          </div>
+          <p className="text-xs text-gray-400 leading-relaxed">
+            <span className="text-accent-success font-medium">{targetProtein}g protein</span> supports muscle recovery.
+            <span className="text-accent-warning font-medium"> {targetCarbs}g carbs</span> fuel your training.
+            <span className="text-accent-secondary font-medium"> {targetFat}g fat</span> for hormones & absorption.
+            Meals timed for energy when you need it most.
+          </p>
+        </div>
+      )}
 
       {/* Meals */}
       <div className="p-4 space-y-4">
@@ -150,10 +180,14 @@ export default function MealPlanView({ mealPlan, recipes, profile, onBack, onReg
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <span className="text-xs font-medium text-accent-primary uppercase tracking-wide">
-                    {type}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-accent-primary uppercase tracking-wide">
+                      {type}
+                    </span>
+                    <Leaf className="w-3 h-3 text-green-500" />
+                  </div>
                   <h3 className="text-white font-medium mt-1 truncate">{meal.title}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{MEAL_BENEFITS[type]}</p>
                   <div className="flex items-center gap-3 mt-2 text-sm text-gray-400">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5" />

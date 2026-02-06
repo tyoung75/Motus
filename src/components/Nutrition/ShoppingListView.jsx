@@ -21,19 +21,40 @@ export default function ShoppingListView({ mealPlan, recipes, onBack }) {
         const recipe = recipes?.[meal.id];
         if (recipe?.ingredients) {
           recipe.ingredients.forEach(ing => {
-            const key = ing.name.toLowerCase();
+            // Handle both formats: { name, amount, unit } and { original }
+            let name, amount, unit;
+
+            if (ing.original) {
+              // Parse "1 cup Greek yogurt" format
+              const parts = ing.original.match(/^([\d.\/]+)?\s*(cup|cups|tbsp|tsp|oz|lb|g|ml|slice|slices|piece|pieces)?\s*(.+)$/i);
+              if (parts) {
+                amount = parts[1] ? parseFloat(eval(parts[1])) : 1; // Handle fractions like 1/2
+                unit = parts[2] || '';
+                name = parts[3]?.trim() || ing.original;
+              } else {
+                name = ing.original;
+                amount = 1;
+                unit = '';
+              }
+            } else {
+              name = ing.name || 'Unknown';
+              amount = ing.amount || 1;
+              unit = ing.unit || '';
+            }
+
+            const key = name.toLowerCase();
             if (ingredients[key]) {
               // Combine amounts if same unit
-              if (ingredients[key].unit === ing.unit) {
-                ingredients[key].amount += ing.amount;
+              if (ingredients[key].unit === unit) {
+                ingredients[key].amount += amount;
               }
             } else {
               ingredients[key] = {
                 id: ing.id || key,
-                name: ing.name,
-                amount: ing.amount,
-                unit: ing.unit,
-                category: categorizeIngredient(ing.name)
+                name: name,
+                amount: amount,
+                unit: unit,
+                category: categorizeIngredient(name)
               };
             }
           });

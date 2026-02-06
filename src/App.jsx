@@ -33,48 +33,70 @@ const generateMockMealPlan = (preferences, profile) => {
   const mealsPerDay = preferences.mealsPerDay || 3;
   const snacksPerDay = preferences.snacksPerDay || 1;
 
-  // Calorie distribution
-  const mealCalories = Math.round(targetCalories * 0.3); // 30% per main meal
-  const snackCalories = Math.round(targetCalories * 0.1); // 10% per snack
+  // Calculate target macros
+  const proteinCals = targetProtein * 4;
+  const remainingCals = targetCalories - proteinCals;
+  const targetCarbs = Math.round((remainingCals * 0.55) / 4);
+  const targetFat = Math.round((remainingCals * 0.45) / 9);
 
-  // Sample recipes database
-  const sampleMeals = {
+  // Calorie distribution per meal type (percentages)
+  const mealDistribution = {
+    2: { breakfast: 0.40, dinner: 0.60 },
+    3: { breakfast: 0.25, lunch: 0.35, dinner: 0.40 },
+    4: { breakfast: 0.20, lunch: 0.30, snack: 0.15, dinner: 0.35 }
+  };
+  const snackCaloriePercent = snacksPerDay > 0 ? 0.10 / snacksPerDay : 0; // 10% total for snacks
+
+  // Base meals (will be scaled to hit targets)
+  const baseMeals = {
     breakfast: [
-      { id: 'b1', title: 'Greek Yogurt Parfait', calories: 350, protein: 25, carbs: 40, fat: 12, readyInMinutes: 5, image: null },
-      { id: 'b2', title: 'Avocado Toast with Eggs', calories: 420, protein: 22, carbs: 35, fat: 24, readyInMinutes: 15, image: null },
-      { id: 'b3', title: 'Protein Oatmeal Bowl', calories: 380, protein: 28, carbs: 48, fat: 10, readyInMinutes: 10, image: null },
-      { id: 'b4', title: 'Veggie Egg Scramble', calories: 340, protein: 24, carbs: 12, fat: 22, readyInMinutes: 12, image: null },
-      { id: 'b5', title: 'Smoothie Bowl', calories: 360, protein: 20, carbs: 52, fat: 8, readyInMinutes: 8, image: null },
-      { id: 'b6', title: 'Overnight Oats', calories: 390, protein: 18, carbs: 55, fat: 12, readyInMinutes: 5, image: null },
-      { id: 'b7', title: 'Breakfast Burrito', calories: 450, protein: 28, carbs: 42, fat: 18, readyInMinutes: 15, image: null },
+      { id: 'b1', title: 'Greek Yogurt Parfait', baseCal: 400, proteinRatio: 0.25, carbRatio: 0.50, fatRatio: 0.25, readyInMinutes: 5 },
+      { id: 'b2', title: 'Avocado Toast with Eggs', baseCal: 450, proteinRatio: 0.22, carbRatio: 0.40, fatRatio: 0.38, readyInMinutes: 15 },
+      { id: 'b3', title: 'Protein Oatmeal Bowl', baseCal: 420, proteinRatio: 0.28, carbRatio: 0.55, fatRatio: 0.17, readyInMinutes: 10 },
+      { id: 'b4', title: 'Veggie Egg Scramble', baseCal: 380, proteinRatio: 0.30, carbRatio: 0.25, fatRatio: 0.45, readyInMinutes: 12 },
+      { id: 'b5', title: 'Smoothie Bowl', baseCal: 400, proteinRatio: 0.20, carbRatio: 0.60, fatRatio: 0.20, readyInMinutes: 8 },
+      { id: 'b6', title: 'Overnight Oats', baseCal: 420, proteinRatio: 0.18, carbRatio: 0.58, fatRatio: 0.24, readyInMinutes: 5 },
+      { id: 'b7', title: 'Breakfast Burrito', baseCal: 500, proteinRatio: 0.25, carbRatio: 0.45, fatRatio: 0.30, readyInMinutes: 15 },
     ],
     lunch: [
-      { id: 'l1', title: 'Grilled Chicken Salad', calories: 480, protein: 42, carbs: 22, fat: 24, readyInMinutes: 20, image: null },
-      { id: 'l2', title: 'Quinoa Buddha Bowl', calories: 520, protein: 22, carbs: 65, fat: 18, readyInMinutes: 25, image: null },
-      { id: 'l3', title: 'Turkey & Avocado Wrap', calories: 490, protein: 35, carbs: 42, fat: 20, readyInMinutes: 10, image: null },
-      { id: 'l4', title: 'Salmon Poke Bowl', calories: 550, protein: 38, carbs: 48, fat: 22, readyInMinutes: 15, image: null },
-      { id: 'l5', title: 'Mediterranean Plate', calories: 480, protein: 28, carbs: 45, fat: 22, readyInMinutes: 15, image: null },
-      { id: 'l6', title: 'Asian Chicken Stir Fry', calories: 460, protein: 36, carbs: 38, fat: 18, readyInMinutes: 20, image: null },
-      { id: 'l7', title: 'Black Bean Tacos', calories: 440, protein: 18, carbs: 55, fat: 16, readyInMinutes: 15, image: null },
+      { id: 'l1', title: 'Grilled Chicken Salad', baseCal: 500, proteinRatio: 0.35, carbRatio: 0.25, fatRatio: 0.40, readyInMinutes: 20 },
+      { id: 'l2', title: 'Quinoa Buddha Bowl', baseCal: 550, proteinRatio: 0.18, carbRatio: 0.55, fatRatio: 0.27, readyInMinutes: 25 },
+      { id: 'l3', title: 'Turkey & Avocado Wrap', baseCal: 520, proteinRatio: 0.28, carbRatio: 0.40, fatRatio: 0.32, readyInMinutes: 10 },
+      { id: 'l4', title: 'Salmon Poke Bowl', baseCal: 580, proteinRatio: 0.28, carbRatio: 0.42, fatRatio: 0.30, readyInMinutes: 15 },
+      { id: 'l5', title: 'Mediterranean Plate', baseCal: 520, proteinRatio: 0.22, carbRatio: 0.45, fatRatio: 0.33, readyInMinutes: 15 },
+      { id: 'l6', title: 'Asian Chicken Stir Fry', baseCal: 500, proteinRatio: 0.30, carbRatio: 0.40, fatRatio: 0.30, readyInMinutes: 20 },
+      { id: 'l7', title: 'Black Bean Tacos', baseCal: 480, proteinRatio: 0.18, carbRatio: 0.55, fatRatio: 0.27, readyInMinutes: 15 },
     ],
     dinner: [
-      { id: 'd1', title: 'Herb Crusted Salmon', calories: 580, protein: 45, carbs: 25, fat: 32, readyInMinutes: 30, image: null },
-      { id: 'd2', title: 'Lean Beef Stir Fry', calories: 520, protein: 40, carbs: 35, fat: 24, readyInMinutes: 25, image: null },
-      { id: 'd3', title: 'Grilled Chicken & Veggies', calories: 490, protein: 48, carbs: 28, fat: 20, readyInMinutes: 35, image: null },
-      { id: 'd4', title: 'Shrimp Pasta Primavera', calories: 540, protein: 32, carbs: 58, fat: 18, readyInMinutes: 30, image: null },
-      { id: 'd5', title: 'Turkey Meatballs & Zoodles', calories: 450, protein: 42, carbs: 22, fat: 22, readyInMinutes: 35, image: null },
-      { id: 'd6', title: 'Baked Cod with Quinoa', calories: 480, protein: 38, carbs: 42, fat: 16, readyInMinutes: 30, image: null },
-      { id: 'd7', title: 'Chicken Tikka Masala', calories: 560, protein: 40, carbs: 45, fat: 24, readyInMinutes: 40, image: null },
+      { id: 'd1', title: 'Herb Crusted Salmon', baseCal: 620, proteinRatio: 0.32, carbRatio: 0.25, fatRatio: 0.43, readyInMinutes: 30 },
+      { id: 'd2', title: 'Lean Beef Stir Fry', baseCal: 580, proteinRatio: 0.30, carbRatio: 0.35, fatRatio: 0.35, readyInMinutes: 25 },
+      { id: 'd3', title: 'Grilled Chicken & Veggies', baseCal: 550, proteinRatio: 0.38, carbRatio: 0.30, fatRatio: 0.32, readyInMinutes: 35 },
+      { id: 'd4', title: 'Shrimp Pasta Primavera', baseCal: 600, proteinRatio: 0.22, carbRatio: 0.50, fatRatio: 0.28, readyInMinutes: 30 },
+      { id: 'd5', title: 'Turkey Meatballs & Zoodles', baseCal: 520, proteinRatio: 0.35, carbRatio: 0.25, fatRatio: 0.40, readyInMinutes: 35 },
+      { id: 'd6', title: 'Baked Cod with Quinoa', baseCal: 540, proteinRatio: 0.32, carbRatio: 0.42, fatRatio: 0.26, readyInMinutes: 30 },
+      { id: 'd7', title: 'Chicken Tikka Masala', baseCal: 620, proteinRatio: 0.28, carbRatio: 0.40, fatRatio: 0.32, readyInMinutes: 40 },
     ],
     snack: [
-      { id: 's1', title: 'Protein Shake', calories: 180, protein: 25, carbs: 12, fat: 4, readyInMinutes: 2, image: null },
-      { id: 's2', title: 'Apple & Almond Butter', calories: 220, protein: 6, carbs: 28, fat: 12, readyInMinutes: 2, image: null },
-      { id: 's3', title: 'Greek Yogurt & Berries', calories: 160, protein: 15, carbs: 18, fat: 4, readyInMinutes: 2, image: null },
-      { id: 's4', title: 'Trail Mix', calories: 200, protein: 6, carbs: 20, fat: 12, readyInMinutes: 1, image: null },
-      { id: 's5', title: 'Cottage Cheese & Fruit', calories: 180, protein: 18, carbs: 16, fat: 5, readyInMinutes: 2, image: null },
-      { id: 's6', title: 'Hummus & Veggies', calories: 150, protein: 6, carbs: 18, fat: 8, readyInMinutes: 3, image: null },
-      { id: 's7', title: 'Protein Bar', calories: 210, protein: 20, carbs: 22, fat: 8, readyInMinutes: 1, image: null },
+      { id: 's1', title: 'Protein Shake', baseCal: 200, proteinRatio: 0.50, carbRatio: 0.30, fatRatio: 0.20, readyInMinutes: 2 },
+      { id: 's2', title: 'Apple & Almond Butter', baseCal: 250, proteinRatio: 0.12, carbRatio: 0.50, fatRatio: 0.38, readyInMinutes: 2 },
+      { id: 's3', title: 'Greek Yogurt & Berries', baseCal: 180, proteinRatio: 0.35, carbRatio: 0.45, fatRatio: 0.20, readyInMinutes: 2 },
+      { id: 's4', title: 'Trail Mix', baseCal: 220, proteinRatio: 0.12, carbRatio: 0.45, fatRatio: 0.43, readyInMinutes: 1 },
+      { id: 's5', title: 'Cottage Cheese & Fruit', baseCal: 200, proteinRatio: 0.40, carbRatio: 0.40, fatRatio: 0.20, readyInMinutes: 2 },
+      { id: 's6', title: 'Hummus & Veggies', baseCal: 170, proteinRatio: 0.15, carbRatio: 0.50, fatRatio: 0.35, readyInMinutes: 3 },
+      { id: 's7', title: 'Protein Bar', baseCal: 230, proteinRatio: 0.35, carbRatio: 0.45, fatRatio: 0.20, readyInMinutes: 1 },
     ]
+  };
+
+  // Helper to scale meal to target calories
+  const scaleMeal = (baseMeal, targetCals) => {
+    const scale = targetCals / baseMeal.baseCal;
+    return {
+      ...baseMeal,
+      calories: Math.round(targetCals),
+      protein: Math.round((targetCals * baseMeal.proteinRatio) / 4),
+      carbs: Math.round((targetCals * baseMeal.carbRatio) / 4),
+      fat: Math.round((targetCals * baseMeal.fatRatio) / 9),
+    };
   };
 
   // Sample recipe details
@@ -91,6 +113,9 @@ const generateMockMealPlan = (preferences, profile) => {
   const mealPlan = { week: {} };
   const recipes = {};
 
+  // Get distribution for this meal count
+  const dist = mealDistribution[mealsPerDay] || mealDistribution[3];
+
   days.forEach((day, dayIndex) => {
     const dayId = dayIds[dayIndex];
     const dayMeals = [];
@@ -100,37 +125,48 @@ const generateMockMealPlan = (preferences, profile) => {
     let dayFat = 0;
     let mealIndex = 0;
 
-    // Add main meals
+    // Calculate calories available for main meals (subtract snack calories)
+    const snackTotalPercent = snacksPerDay * snackCaloriePercent;
+    const mainMealCalories = targetCalories * (1 - snackTotalPercent);
+
+    // Add main meals based on mealsPerDay
     const mealTypes = mealsPerDay === 2 ? ['breakfast', 'dinner'] :
                       mealsPerDay === 3 ? ['breakfast', 'lunch', 'dinner'] :
                       ['breakfast', 'lunch', 'snack', 'dinner'];
 
-    mealTypes.forEach((type, idx) => {
+    mealTypes.forEach((type) => {
       // Check if this meal is excluded
       const isExcluded = preferences.excludedMeals?.[`${dayId}-${mealIndex}`];
       mealIndex++;
 
-      if (!isExcluded) {
-        const mealOptions = sampleMeals[type] || sampleMeals.lunch;
-        const meal = mealOptions[dayIndex % mealOptions.length];
-        dayMeals.push({ ...meal, type });
-        dayCalories += meal.calories;
-        dayProtein += meal.protein;
-        dayCarbs += meal.carbs;
-        dayFat += meal.fat;
+      if (!isExcluded && type !== 'snack') {
+        const mealOptions = baseMeals[type] || baseMeals.lunch;
+        const baseMeal = mealOptions[dayIndex % mealOptions.length];
 
-        // Add recipe details if available
-        if (recipeDetails[meal.id]) {
-          recipes[meal.id] = { ...meal, ...recipeDetails[meal.id] };
+        // Calculate target calories for this meal type
+        const mealTargetCals = Math.round(mainMealCalories * (dist[type] || 0.33));
+        const scaledMeal = scaleMeal(baseMeal, mealTargetCals);
+
+        dayMeals.push({ ...scaledMeal, type, image: null });
+        dayCalories += scaledMeal.calories;
+        dayProtein += scaledMeal.protein;
+        dayCarbs += scaledMeal.carbs;
+        dayFat += scaledMeal.fat;
+
+        // Add recipe details
+        const mealWithRecipe = { ...scaledMeal, image: null };
+        if (recipeDetails[baseMeal.id]) {
+          recipes[baseMeal.id] = { ...mealWithRecipe, ...recipeDetails[baseMeal.id] };
         } else {
-          recipes[meal.id] = {
-            ...meal,
+          recipes[baseMeal.id] = {
+            ...mealWithRecipe,
             ingredients: [
-              { original: 'Ingredient 1' },
-              { original: 'Ingredient 2' },
-              { original: 'Ingredient 3' }
+              { original: 'Lean protein source' },
+              { original: 'Complex carbohydrates' },
+              { original: 'Healthy fats' },
+              { original: 'Fresh vegetables' }
             ],
-            instructions: ['Step 1: Prepare ingredients', 'Step 2: Cook', 'Step 3: Serve and enjoy']
+            instructions: ['Prep all ingredients', 'Cook protein to desired doneness', 'Combine and serve']
           };
         }
       }
@@ -142,17 +178,21 @@ const generateMockMealPlan = (preferences, profile) => {
       mealIndex++;
 
       if (!isExcluded) {
-        const snack = sampleMeals.snack[(dayIndex + i) % sampleMeals.snack.length];
-        dayMeals.push({ ...snack, type: 'snack' });
-        dayCalories += snack.calories;
-        dayProtein += snack.protein;
-        dayCarbs += snack.carbs;
-        dayFat += snack.fat;
+        const baseMeal = baseMeals.snack[(dayIndex + i) % baseMeals.snack.length];
+        const snackTargetCals = Math.round(targetCalories * snackCaloriePercent);
+        const scaledSnack = scaleMeal(baseMeal, snackTargetCals);
 
-        recipes[snack.id] = {
-          ...snack,
-          ingredients: [{ original: 'Quick snack - no prep needed' }],
-          instructions: ['Enjoy!']
+        dayMeals.push({ ...scaledSnack, type: 'snack', image: null });
+        dayCalories += scaledSnack.calories;
+        dayProtein += scaledSnack.protein;
+        dayCarbs += scaledSnack.carbs;
+        dayFat += scaledSnack.fat;
+
+        recipes[baseMeal.id] = {
+          ...scaledSnack,
+          image: null,
+          ingredients: [{ original: 'Quick, nutritious snack' }],
+          instructions: ['Enjoy between meals for sustained energy!']
         };
       }
     }
