@@ -73,8 +73,9 @@ export function LogMealModal({ isOpen, onClose, onSave }) {
       const result = await fetchProductByBarcode(barcode);
       if (result.success) {
         setCurrentProduct(result.product);
+        // Use default serving from data source
         setServingAmount('1');
-        setServingUnit('serving');
+        setServingUnit(result.product.servingSize || 'serving');
         setView('product');
       } else {
         setError(`Product not found for barcode: ${barcode}`);
@@ -113,8 +114,9 @@ export function LogMealModal({ isOpen, onClose, onSave }) {
   // Select product from search results
   const selectProduct = (product) => {
     setCurrentProduct(product);
+    // Use default serving from data source
     setServingAmount('1');
-    setServingUnit('serving');
+    setServingUnit(product.servingSize || 'serving');
     setView('product');
   };
 

@@ -56,9 +56,10 @@ export function BarcodeScanner({ isOpen, onScan, onClose }) {
       await html5QrCode.start(
         selectedCameraId,
         {
-          fps: 10,
-          qrbox: { width: 280, height: 150 },
+          fps: 15, // Increased for faster scanning
+          qrbox: { width: 300, height: 120 }, // Optimized for 1D barcodes
           aspectRatio: 1.777,
+          formatsToSupport: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], // Common barcode formats
         },
         (decodedText) => {
           // Success callback

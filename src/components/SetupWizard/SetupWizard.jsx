@@ -279,7 +279,8 @@ function SetupWizard({ onComplete }) {
 
   // Update strength goal
   const updateStrengthGoal = (exerciseId, field, value) => {
-    const updated = formData.strengthGoals.map((ex) =>
+    const strengthGoals = formData.strengthGoals || [];
+    const updated = strengthGoals.map((ex) =>
       ex.id === exerciseId ? { ...ex, [field]: value } : ex
     );
     updateFormData('strengthGoals', updated);
@@ -425,7 +426,8 @@ function SetupWizard({ onComplete }) {
       return true;
     }
     if (formData.programType === 'strength') {
-      const hasAtLeastOneGoal = formData.strengthGoals.some(g => g.current && g.target);
+      const strengthGoals = formData.strengthGoals || [];
+      const hasAtLeastOneGoal = strengthGoals.some(g => g.current && g.target);
       if (!hasAtLeastOneGoal) {
         setStrengthGoalError(null);
         return false;
@@ -444,7 +446,7 @@ function SetupWizard({ onComplete }) {
 
       // Check each lift for realistic progression
       const unrealisticLifts = [];
-      formData.strengthGoals.forEach(goal => {
+      strengthGoals.forEach(goal => {
         if (goal.current && goal.target) {
           const current = parseFloat(goal.current);
           const target = parseFloat(goal.target);
