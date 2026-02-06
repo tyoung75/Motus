@@ -127,13 +127,19 @@ const TRIATHLON_DISTANCES = [
   { id: 'full-iron', label: 'Ironman', description: '3.8km swim, 180km bike, 42.2km run' },
 ];
 
-// Default strength exercises
+// Default strength exercises - Big 4 lifts
 const STRENGTH_EXERCISES = [
   { id: 'squat', label: 'Back Squat' },
   { id: 'bench', label: 'Bench Press' },
   { id: 'deadlift', label: 'Deadlift' },
   { id: 'ohp', label: 'Overhead Press' },
-  { id: 'row', label: 'Barbell Row' },
+];
+
+// Secondary cardio options for strength/aesthetic programs
+const SECONDARY_CARDIO_OPTIONS = [
+  { id: 'running', label: 'Running', icon: '🏃', description: '2-3 easy runs per week' },
+  { id: 'cycling', label: 'Cycling', icon: '🚴', description: '2-3 bike sessions per week' },
+  { id: 'swimming', label: 'Swimming', icon: '🏊', description: '2-3 swim sessions per week' },
 ];
 
 // Generate test profile and program for dev testing
@@ -237,14 +243,21 @@ function SetupWizard({ onComplete }) {
     baselineTimeSeconds: '',
     longestRecentRun: '', // miles
 
-    // Strength goals - 5 exercises
+    // Strength goals - Big 4 lifts with 1RM calculator support
     strengthGoals: STRENGTH_EXERCISES.map(ex => ({
       id: ex.id,
       label: ex.label,
-      current: '',
-      target: '',
+      current1RM: '',
+      target1RM: '',
+      workingWeight: '', // For 1RM calculator
+      workingReps: '',   // For 1RM calculator
     })),
     strengthGoalDate: '', // Target date for strength goals
+
+    // Secondary cardio for strength/aesthetic programs
+    includeCardio: false,
+    cardioType: '', // running, cycling, or swimming
+    cardioDaysPerWeek: 2,
 
     // Aesthetic goals
     currentBodyFat: '',
@@ -461,7 +474,7 @@ function SetupWizard({ onComplete }) {
     }
     if (formData.programType === 'strength') {
       const strengthGoals = formData.strengthGoals || [];
-      const hasAtLeastOneGoal = strengthGoals.some(g => g.current && g.target);
+      const hasAtLeastOneGoal = strengthGoals.some(g => g.current1RM && g.target1RM);
       if (!hasAtLeastOneGoal) {
         return false;
       }
@@ -488,7 +501,7 @@ function SetupWizard({ onComplete }) {
     }
 
     const strengthGoals = formData.strengthGoals || [];
-    const hasAtLeastOneGoal = strengthGoals.some(g => g.current && g.target);
+    const hasAtLeastOneGoal = strengthGoals.some(g => g.current1RM && g.target1RM);
 
     if (!hasAtLeastOneGoal || !formData.strengthGoalDate) {
       setStrengthGoalError(null);
@@ -502,9 +515,9 @@ function SetupWizard({ onComplete }) {
     // Check each lift for realistic progression
     const unrealisticLifts = [];
     strengthGoals.forEach(goal => {
-      if (goal.current && goal.target) {
-        const current = parseFloat(goal.current);
-        const target = parseFloat(goal.target);
+      if (goal.current1RM && goal.target1RM) {
+        const current = parseFloat(goal.current1RM);
+        const target = parseFloat(goal.target1RM);
         const totalIncrease = target - current;
         const weeklyIncrease = totalIncrease / weeksUntilGoal;
 
@@ -1254,6 +1267,15 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
   const programType = safeFormData.programType || '';
   const programSubtype = safeFormData.programSubtype || '';
 
+  // Determine experience level from training history
+  const getExperienceLevel = () => {
+    const years = parseInt(safeFormData.yearsTraining) || 0;
+    if (years < 1) return 'beginner';
+    if (years < 3) return 'intermediate';
+    if (years < 6) return 'advanced';
+    return 'elite';
+  };
+
   // Render strength goals using dedicated component
   if (programType === 'strength') {
     return (
@@ -1266,8 +1288,11 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
         <StrengthGoalsForm
           strengthGoals={safeFormData.strengthGoals}
           strengthGoalDate={safeFormData.strengthGoalDate}
+          programStartDate={safeFormData.programStartDate}
+          experienceLevel={getExperienceLevel()}
           onUpdateGoal={updateStrengthGoal}
           onUpdateDate={(value) => updateFormData('strengthGoalDate', value)}
+          onUpdateStartDate={(value) => updateFormData('programStartDate', value)}
         />
 
         {strengthGoalError && (
@@ -1276,19 +1301,6 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
             <p className="text-sm text-gray-300 whitespace-pre-line">{strengthGoalError}</p>
           </div>
         )}
-
-        {/* Program Start Date */}
-        <div className="pt-6 border-t border-dark-600">
-          <h3 className="text-lg font-semibold text-white mb-4">📅 Program Start Date</h3>
-          <input
-            type="date"
-            value={safeFormData.programStartDate || ''}
-            min={getTodayString()}
-            onChange={(e) => updateFormData('programStartDate', e.target.value)}
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white"
-          />
-          <p className="text-xs text-gray-500 mt-2">Leave blank to start today</p>
-        </div>
 
         {/* Nutrition Goal */}
         <div className="pt-6 border-t border-dark-600">
@@ -1314,6 +1326,81 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Secondary Cardio Option */}
+        <div className="pt-6 border-t border-dark-600">
+          <h3 className="text-lg font-semibold text-white mb-2">🫀 Add Cardio for Heart Health?</h3>
+          <p className="text-sm text-gray-400 mb-4">
+            Adding 2-3 days of easy cardio improves cardiovascular health and recovery without
+            interfering with your strength gains.
+          </p>
+
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              onClick={() => updateFormData('includeCardio', !safeFormData.includeCardio)}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                safeFormData.includeCardio ? 'bg-accent-primary' : 'bg-dark-600'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                  safeFormData.includeCardio ? 'left-6' : 'left-0.5'
+                }`}
+              />
+            </button>
+            <span className="text-white">Include cardio in my program</span>
+          </div>
+
+          {safeFormData.includeCardio && (
+            <div className="space-y-4 p-4 bg-dark-700 rounded-lg">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Cardio Type
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {SECONDARY_CARDIO_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      onClick={() => updateFormData('cardioType', option.id)}
+                      className={`p-3 rounded-lg border text-center ${
+                        safeFormData.cardioType === option.id
+                          ? 'bg-accent-primary/20 border-accent-primary'
+                          : 'bg-dark-600 border-dark-500'
+                      }`}
+                    >
+                      <span className="text-2xl block mb-1">{option.icon}</span>
+                      <span className="text-white text-sm">{option.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Days per Week
+                </label>
+                <div className="flex gap-2">
+                  {[2, 3].map((days) => (
+                    <button
+                      key={days}
+                      onClick={() => updateFormData('cardioDaysPerWeek', days)}
+                      className={`flex-1 py-2 rounded-lg border ${
+                        safeFormData.cardioDaysPerWeek === days
+                          ? 'bg-accent-primary/20 border-accent-primary text-white'
+                          : 'bg-dark-600 border-dark-500 text-gray-400'
+                      }`}
+                    >
+                      {days} days
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Cardio sessions will be scheduled on rest days or as double days (AM/PM splits)
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1695,6 +1782,106 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
               </p>
             </div>
           )}
+
+          {/* Program Start Date */}
+          <div className="pt-4 border-t border-dark-600">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Program Start Date
+            </label>
+            <input
+              type="date"
+              value={formData.programStartDate || ''}
+              min={getTodayString()}
+              onChange={(e) => updateFormData('programStartDate', e.target.value)}
+              className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white"
+            />
+            <p className="text-xs text-gray-500 mt-1">Leave blank to start today</p>
+          </div>
+
+          {/* Recomp Strategy Info */}
+          <div className="p-4 bg-gradient-to-r from-accent-primary/10 to-accent-secondary/10 rounded-lg border border-accent-primary/20">
+            <h4 className="text-white font-medium mb-2">🔄 Recomp Strategy</h4>
+            <p className="text-sm text-gray-300">
+              Your nutrition is set to <span className="text-accent-primary font-medium">recomp</span> (body recomposition).
+              This means eating at maintenance with high protein, slightly lower on rest days,
+              and slightly higher on training days to maximize muscle gain while losing fat.
+            </p>
+          </div>
+
+          {/* Secondary Cardio Option */}
+          <div className="pt-4 border-t border-dark-600">
+            <h4 className="text-white font-semibold mb-2">🫀 Add Cardio for Heart Health?</h4>
+            <p className="text-sm text-gray-400 mb-4">
+              Light cardio improves cardiovascular health and can help with fat loss without
+              impacting your muscle-building goals.
+            </p>
+
+            <div className="flex items-center gap-3 mb-4">
+              <button
+                onClick={() => updateFormData('includeCardio', !formData.includeCardio)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  formData.includeCardio ? 'bg-accent-primary' : 'bg-dark-600'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                    formData.includeCardio ? 'left-6' : 'left-0.5'
+                  }`}
+                />
+              </button>
+              <span className="text-white">Include cardio in my program</span>
+            </div>
+
+            {formData.includeCardio && (
+              <div className="space-y-4 p-4 bg-dark-700 rounded-lg">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Cardio Type
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {SECONDARY_CARDIO_OPTIONS.map((option) => (
+                      <button
+                        key={option.id}
+                        onClick={() => updateFormData('cardioType', option.id)}
+                        className={`p-3 rounded-lg border text-center ${
+                          formData.cardioType === option.id
+                            ? 'bg-accent-primary/20 border-accent-primary'
+                            : 'bg-dark-600 border-dark-500'
+                        }`}
+                      >
+                        <span className="text-2xl block mb-1">{option.icon}</span>
+                        <span className="text-white text-sm">{option.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Days per Week
+                  </label>
+                  <div className="flex gap-2">
+                    {[2, 3].map((days) => (
+                      <button
+                        key={days}
+                        onClick={() => updateFormData('cardioDaysPerWeek', days)}
+                        className={`flex-1 py-2 rounded-lg border ${
+                          formData.cardioDaysPerWeek === days
+                            ? 'bg-accent-primary/20 border-accent-primary text-white'
+                            : 'bg-dark-600 border-dark-500 text-gray-400'
+                        }`}
+                      >
+                        {days} days
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Cardio sessions will be scheduled on rest days or as double days
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       );
     }
