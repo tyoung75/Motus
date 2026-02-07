@@ -76,6 +76,65 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Phone OTP - Send verification code
+  const sendPhoneOTP = async (phone) => {
+    if (!isSupabaseConfigured()) {
+      return { error: { message: 'Authentication not configured.' } };
+    }
+
+    try {
+      // Format phone number (ensure it starts with +)
+      const formattedPhone = phone.startsWith('+') ? phone : `+1${phone.replace(/\D/g, '')}`;
+
+      const { data, error } = await supabase.auth.signInWithOtp({
+        phone: formattedPhone,
+      });
+
+      if (error) {
+        console.error('Phone OTP error:', error);
+        return { data: null, error };
+      }
+
+      return { data: { phone: formattedPhone }, error: null };
+    } catch (err) {
+      console.error('Unexpected error sending OTP:', err);
+      return {
+        data: null,
+        error: { message: err.message || 'Failed to send verification code.' }
+      };
+    }
+  };
+
+  // Phone OTP - Verify code
+  const verifyPhoneOTP = async (phone, token) => {
+    if (!isSupabaseConfigured()) {
+      return { error: { message: 'Authentication not configured.' } };
+    }
+
+    try {
+      const formattedPhone = phone.startsWith('+') ? phone : `+1${phone.replace(/\D/g, '')}`;
+
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: formattedPhone,
+        token,
+        type: 'sms'
+      });
+
+      if (error) {
+        console.error('OTP verification error:', error);
+        return { data: null, error };
+      }
+
+      return { data, error: null };
+    } catch (err) {
+      console.error('Unexpected error verifying OTP:', err);
+      return {
+        data: null,
+        error: { message: err.message || 'Failed to verify code.' }
+      };
+    }
+  };
+
   // Google Sign In
   const signInWithGoogle = async () => {
     if (!isSupabaseConfigured()) {
@@ -340,6 +399,8 @@ export function AuthProvider({ children }) {
     user,
     loading,
     // Primary auth methods
+    sendPhoneOTP,
+    verifyPhoneOTP,
     signInWithGoogle,
     signInWithApple,
     signOut,

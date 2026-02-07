@@ -11,8 +11,10 @@ import { StatsView } from './components/Stats/StatsView';
 import { ProfileView } from './components/Profile/ProfileView';
 import { LogMealModal } from './components/Modals/LogMealModal';
 import { LogWorkoutModal } from './components/Modals/LogWorkoutModal';
+import { PhoneAuthModal } from './components/Modals/PhoneAuthModal';
 import { TabBar } from './components/shared/TabBar';
 import { PaywallOverlay } from './components/Paywall';
+import { PrivacyPolicy, TermsConditions } from './pages';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import {
   loadProfile,
@@ -265,6 +267,11 @@ function AppContent() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [showNutritionPreferences, setShowNutritionPreferences] = useState(false);
   const [isGeneratingMealPlan, setIsGeneratingMealPlan] = useState(false);
+
+  // Legal & Auth pages
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPhoneAuth, setShowPhoneAuth] = useState(false);
 
   // Load data from cloud or localStorage on mount/auth change
   useEffect(() => {
@@ -531,9 +538,32 @@ function AppContent() {
     setShowLanding(false);
   };
 
+  // Render privacy policy page
+  if (showPrivacy) {
+    return <PrivacyPolicy onBack={() => setShowPrivacy(false)} />;
+  }
+
+  // Render terms & conditions page
+  if (showTerms) {
+    return <TermsConditions onBack={() => setShowTerms(false)} />;
+  }
+
   // Render landing page for new visitors
   if (showLanding && !isSetupComplete) {
-    return <LandingPage onGetStarted={handleGetStarted} />;
+    return (
+      <>
+        <LandingPage
+          onGetStarted={() => setShowPhoneAuth(true)}
+          onShowPrivacy={() => setShowPrivacy(true)}
+          onShowTerms={() => setShowTerms(true)}
+        />
+        <PhoneAuthModal
+          isOpen={showPhoneAuth}
+          onClose={() => setShowPhoneAuth(false)}
+          onSuccess={handleGetStarted}
+        />
+      </>
+    );
   }
 
   // Render setup wizard if not complete

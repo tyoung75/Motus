@@ -38,7 +38,7 @@ const FEATURES = [
   }
 ];
 
-export function LandingPage({ onGetStarted }) {
+export function LandingPage({ onGetStarted, onShowPrivacy, onShowTerms }) {
   return (
     <div className="min-h-screen bg-dark-950 text-white overflow-x-hidden">
       {/* Navigation */}
@@ -366,9 +366,9 @@ export function LandingPage({ onGetStarted }) {
               <span className="text-xl font-display font-bold">MOTUS</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-gray-500">
-              <a href="#" className="hover:text-white transition-colors">Privacy</a>
-              <a href="#" className="hover:text-white transition-colors">Terms</a>
-              <a href="#" className="hover:text-white transition-colors">Contact</a>
+              <button onClick={onShowPrivacy} className="hover:text-white transition-colors">Privacy</button>
+              <button onClick={onShowTerms} className="hover:text-white transition-colors">Terms</button>
+              <a href="mailto:support@motusfit.app" className="hover:text-white transition-colors">Contact</a>
             </div>
             <p className="text-sm text-gray-500">
               © 2024 MOTUS. Train With Intent.
