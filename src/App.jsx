@@ -11,7 +11,9 @@ import { StatsView } from './components/Stats/StatsView';
 import { ProfileView } from './components/Profile/ProfileView';
 import { LogMealModal } from './components/Modals/LogMealModal';
 import { LogWorkoutModal } from './components/Modals/LogWorkoutModal';
-import { PhoneAuthModal } from './components/Modals/PhoneAuthModal';
+import { SignUpModal } from './components/Modals/SignUpModal';
+// Phone OTP auth commented out - Twilio setup pending
+// import { PhoneAuthModal } from './components/Modals/PhoneAuthModal';
 import { TabBar } from './components/shared/TabBar';
 import { PaywallOverlay } from './components/Paywall';
 import { PrivacyPolicy, TermsConditions } from './pages';
@@ -557,10 +559,12 @@ function AppContent() {
           onShowPrivacy={() => setShowPrivacy(true)}
           onShowTerms={() => setShowTerms(true)}
         />
-        <PhoneAuthModal
+        <SignUpModal
           isOpen={showPhoneAuth}
           onClose={() => setShowPhoneAuth(false)}
           onSuccess={handleGetStarted}
+          onShowPrivacy={() => { setShowPhoneAuth(false); setShowPrivacy(true); }}
+          onShowTerms={() => { setShowPhoneAuth(false); setShowTerms(true); }}
         />
       </>
     );

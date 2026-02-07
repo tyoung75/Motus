@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <!-- Background circle (optional, remove for transparent) -->
+  <defs>
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#D4A853"/>
+      <stop offset="100%" style="stop-color:#C49B4A"/>
+    </linearGradient>
+    <linearGradient id="motionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#D4A853;stop-opacity:0.3"/>
+      <stop offset="50%" style="stop-color:#D4A853;stop-opacity:0.6"/>
+      <stop offset="100%" style="stop-color:#D4A853"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Motion trails (representing movement) -->
+  <path d="M45 100 Q70 70, 100 70 Q130 70, 155 100" stroke="url(#motionGradient)" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.4"/>
+  <path d="M50 115 Q75 90, 100 90 Q125 90, 150 115" stroke="url(#motionGradient)" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.6"/>
+
+  <!-- Main "M" shape stylized as forward motion/mountain peak -->
+  <path d="M40 145 L70 75 L100 115 L130 75 L160 145"
+        stroke="url(#goldGradient)"
+        stroke-width="12"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"/>
+
+  <!-- Dynamic forward arrow/chevron accent -->
+  <path d="M165 95 L180 110 L165 125"
+        stroke="#D4A853"
+        stroke-width="6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"/>
+
+  <!-- Speed lines -->
+  <line x1="25" y1="110" x2="38" y2="110" stroke="#D4A853" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+  <line x1="20" y1="125" x2="35" y2="125" stroke="#D4A853" stroke-width="3" stroke-linecap="round" opacity="0.3"/>
+</svg>

@@ -67,6 +67,16 @@ const STEPS = [
 // MECE Program categories (Fat Loss removed - handled via nutrition goal)
 const PROGRAM_TYPES = [
   {
+    id: 'lockin',
+    title: '30 Day Lock In',
+    description: 'Build momentum with a simple, structured 30-day challenge',
+    icon: '🔥',
+    subtypes: [
+      { id: 'lockin-standard', label: '30 Day Challenge' },
+    ],
+    isLockIn: true,
+  },
+  {
     id: 'endurance',
     title: 'Endurance',
     description: 'Cardiovascular training - running, cycling, swimming',
@@ -100,6 +110,31 @@ const PROGRAM_TYPES = [
       { id: 'recomp', label: 'Body Recomposition' },
     ],
   },
+];
+
+// 30 Day Lock In commitment options
+const LOCKIN_COMMITMENTS = {
+  workout: { id: 'workout', label: '1hr Workout Daily', description: 'Non-negotiable daily commitment', required: true, default: true },
+  steps: { id: 'steps', label: 'Daily Steps', options: ['10k', '15k'] },
+  water: { id: 'water', label: '1 Gallon Water Daily', description: 'Stay hydrated every day' },
+  protein: { id: 'protein', label: 'High Protein Diet', description: '1g protein per lb of ideal bodyweight + whole foods' },
+};
+
+// Lock In cardio options (3 days/week, 20-30 min)
+const LOCKIN_CARDIO_OPTIONS = [
+  { id: 'treadmill', label: 'Treadmill', icon: '🏃' },
+  { id: 'stairmaster', label: 'Stair Master', icon: '🪜' },
+  { id: 'elliptical', label: 'Elliptical', icon: '🔄' },
+  { id: 'cycling', label: 'Cycling', icon: '🚴' },
+];
+
+// Lock In rest day activity options (1hr on day 7)
+const LOCKIN_RESTDAY_OPTIONS = [
+  { id: 'jog', label: '1hr Jog', icon: '🏃' },
+  { id: 'walk', label: '1hr Walk', icon: '🚶' },
+  { id: 'cycling-class', label: 'Cycling Class', icon: '🚴' },
+  { id: 'yoga', label: 'Yoga', icon: '🧘' },
+  { id: 'stretch', label: 'Stretching', icon: '🤸' },
 ];
 
 // Race distances for endurance goals
@@ -275,6 +310,15 @@ function SetupWizard({ onComplete }) {
     secondarySubtype: '',
     allowDoubleDays: false,
 
+    // 30 Day Lock In commitments
+    lockInWorkout: true, // Non-negotiable, always true
+    lockInSteps: '10k', // '10k' or '15k'
+    lockInWater: true,
+    lockInProtein: true,
+    lockInCardioType: 'treadmill', // For 3x/week cardio
+    lockInRestDayActivity: 'walk', // For day 7 recovery
+    lockInIdealWeight: '', // For protein calculation
+
     // Training preferences
     sessionDuration: 60,
     equipment: 'full',
@@ -443,14 +487,19 @@ function SetupWizard({ onComplete }) {
   const canProceed = () => {
     switch (currentStep) {
       case 1:
-        return formData.name && formData.age && formData.sex;
+        return formData.name && formData.sex;
       case 2:
         const hasWeight = formData.weight;
         const hasHeight = formData.heightUnit === 'metric'
           ? formData.heightCm
           : (formData.heightFeet && formData.heightInches);
-        return hasWeight && hasHeight;
+        const hasAge = formData.age;
+        return hasWeight && hasHeight && hasAge;
       case 3:
+        // Lock In just needs programType selected (subtype is auto-set)
+        if (formData.programType === 'lockin') {
+          return true; // Lock In has defaults for everything
+        }
         return formData.programType && formData.programSubtype && formData.desiredTrainingDays;
       case 4:
         return validateGoalDetails();
@@ -463,6 +512,10 @@ function SetupWizard({ onComplete }) {
 
   // Pure validation function - NO state updates! Called during render.
   const validateGoalDetails = () => {
+    // Lock In doesn't need goal details - skip validation
+    if (formData.programType === 'lockin') {
+      return true;
+    }
     if (formData.programType === 'endurance') {
       if (formData.programSubtype === 'running') {
         return formData.raceDistance && formData.raceDate;
@@ -849,19 +902,6 @@ function StepPersonalInfo({ formData, updateFormData, user, signInWithGoogle, is
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Age</label>
-          <input
-            type="number"
-            value={formData.age}
-            onChange={(e) => updateFormData('age', e.target.value)}
-            placeholder="Enter your age"
-            min="16"
-            max="100"
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-primary"
-          />
-        </div>
-
-        <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">Sex</label>
           <div className="flex gap-4">
             {['male', 'female'].map((sex) => (
@@ -972,6 +1012,19 @@ function StepBodyStats({ formData, updateFormData }) {
         </div>
 
         <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Age</label>
+          <input
+            type="number"
+            value={formData.age}
+            onChange={(e) => updateFormData('age', e.target.value)}
+            placeholder="Enter your age"
+            min="16"
+            max="100"
+            className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-primary"
+          />
+        </div>
+
+        <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
             Body Fat % <span className="text-gray-500">(Optional)</span>
           </label>
@@ -1077,7 +1130,14 @@ function StepPrimaryGoal({ formData, updateFormData }) {
             key={program.id}
             onClick={() => {
               updateFormData('programType', program.id);
-              updateFormData('programSubtype', '');
+              // Auto-set subtype for Lock In (only one option)
+              if (program.id === 'lockin') {
+                updateFormData('programSubtype', 'lockin-standard');
+                updateFormData('desiredTrainingDays', 6); // Fixed 6 days for Lock In
+                updateFormData('enableHybrid', false);
+              } else {
+                updateFormData('programSubtype', '');
+              }
               // Clear hybrid settings for strength and aesthetic (not supported)
               if (program.id === 'strength' || program.id === 'aesthetic') {
                 updateFormData('enableHybrid', false);
@@ -1103,8 +1163,197 @@ function StepPrimaryGoal({ formData, updateFormData }) {
         ))}
       </div>
 
-      {/* Subtype Selection */}
-      {selectedProgram && (
+      {/* 30 Day Lock In Commitment Selection */}
+      {formData.programType === 'lockin' && (
+        <div className="mt-6 space-y-6">
+          {/* Program Overview */}
+          <div className="p-4 bg-gradient-to-r from-orange-500/10 to-red-500/10 rounded-xl border border-orange-500/30">
+            <h3 className="text-lg font-bold text-white mb-2">🔥 30 Day Lock In Challenge</h3>
+            <p className="text-sm text-gray-300 mb-3">
+              Simple, structured, no excuses. Build momentum with daily commitments for 30 days.
+            </p>
+            <div className="text-xs text-gray-400 space-y-1">
+              <p>• 6 days/week weightlifting (double progressive overload)</p>
+              <p>• 3 days/week cardio (20-30 min)</p>
+              <p>• Day 7: Active recovery (1 hour)</p>
+            </div>
+          </div>
+
+          {/* Daily Commitments */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-3">
+              Your Daily Commitments:
+            </label>
+            <div className="space-y-3">
+              {/* Workout - Always checked, non-negotiable */}
+              <div className="flex items-center justify-between p-3 bg-dark-700 rounded-lg border border-accent-primary/50">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">💪</span>
+                  <div>
+                    <p className="text-white font-medium">1hr Workout Daily</p>
+                    <p className="text-xs text-gray-400">Non-negotiable</p>
+                  </div>
+                </div>
+                <div className="w-6 h-6 bg-accent-primary rounded flex items-center justify-center">
+                  <svg className="w-4 h-4 text-dark-900" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Steps */}
+              <div className="p-3 bg-dark-700 rounded-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-xl">👟</span>
+                  <p className="text-white font-medium">Daily Steps Goal</p>
+                </div>
+                <div className="flex gap-2">
+                  {['10k', '15k'].map((steps) => (
+                    <button
+                      key={steps}
+                      onClick={() => updateFormData('lockInSteps', steps)}
+                      className={`flex-1 py-2 px-4 rounded-lg border text-sm transition-all ${
+                        formData.lockInSteps === steps
+                          ? 'bg-accent-primary/20 border-accent-primary text-white'
+                          : 'bg-dark-600 border-dark-500 text-gray-400'
+                      }`}
+                    >
+                      {steps} steps
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Water */}
+              <button
+                onClick={() => updateFormData('lockInWater', !formData.lockInWater)}
+                className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all ${
+                  formData.lockInWater
+                    ? 'bg-dark-700 border-accent-primary/50'
+                    : 'bg-dark-800 border-dark-600'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">💧</span>
+                  <div className="text-left">
+                    <p className="text-white font-medium">1 Gallon Water Daily</p>
+                    <p className="text-xs text-gray-400">Stay hydrated</p>
+                  </div>
+                </div>
+                <div className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                  formData.lockInWater ? 'bg-accent-primary border-accent-primary' : 'border-dark-500'
+                }`}>
+                  {formData.lockInWater && (
+                    <svg className="w-4 h-4 text-dark-900" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+              </button>
+
+              {/* High Protein */}
+              <button
+                onClick={() => updateFormData('lockInProtein', !formData.lockInProtein)}
+                className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all ${
+                  formData.lockInProtein
+                    ? 'bg-dark-700 border-accent-primary/50'
+                    : 'bg-dark-800 border-dark-600'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🥩</span>
+                  <div className="text-left">
+                    <p className="text-white font-medium">High Protein + Whole Foods</p>
+                    <p className="text-xs text-gray-400">1g protein per lb of ideal bodyweight</p>
+                  </div>
+                </div>
+                <div className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                  formData.lockInProtein ? 'bg-accent-primary border-accent-primary' : 'border-dark-500'
+                }`}>
+                  {formData.lockInProtein && (
+                    <svg className="w-4 h-4 text-dark-900" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+              </button>
+
+              {/* Ideal Weight for protein calc (only if protein selected) */}
+              {formData.lockInProtein && (
+                <div className="p-3 bg-dark-800 rounded-lg border border-dark-600">
+                  <label className="block text-sm text-gray-400 mb-2">
+                    What's your ideal bodyweight? (for protein target)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={formData.lockInIdealWeight}
+                      onChange={(e) => updateFormData('lockInIdealWeight', e.target.value)}
+                      placeholder="e.g., 180"
+                      className="flex-1 px-4 py-2 bg-dark-700 border border-dark-500 rounded-lg text-white"
+                    />
+                    <span className="px-4 py-2 bg-dark-700 rounded-lg text-gray-400">lbs</span>
+                  </div>
+                  {formData.lockInIdealWeight && (
+                    <p className="text-xs text-accent-primary mt-2">
+                      Daily protein target: {formData.lockInIdealWeight}g
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Cardio Selection (3x/week) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-3">
+              Cardio Type (3x/week, 20-30 min):
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {LOCKIN_CARDIO_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => updateFormData('lockInCardioType', option.id)}
+                  className={`p-3 rounded-lg border text-sm transition-all ${
+                    formData.lockInCardioType === option.id
+                      ? 'bg-accent-secondary/20 border-accent-secondary text-white'
+                      : 'bg-dark-700 border-dark-500 text-gray-400'
+                  }`}
+                >
+                  <span className="text-xl mr-2">{option.icon}</span>
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Rest Day Activity (Day 7) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-3">
+              Day 7 Recovery Activity (1 hour):
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {LOCKIN_RESTDAY_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => updateFormData('lockInRestDayActivity', option.id)}
+                  className={`p-3 rounded-lg border text-sm transition-all ${
+                    formData.lockInRestDayActivity === option.id
+                      ? 'bg-accent-secondary/20 border-accent-secondary text-white'
+                      : 'bg-dark-700 border-dark-500 text-gray-400'
+                  }`}
+                >
+                  <span className="text-xl mr-2">{option.icon}</span>
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subtype Selection (for non-Lock In programs) */}
+      {selectedProgram && formData.programType !== 'lockin' && (
         <div className="mt-6">
           <label className="block text-sm font-medium text-gray-300 mb-3">
             Select your specific focus:
@@ -1127,8 +1376,8 @@ function StepPrimaryGoal({ formData, updateFormData }) {
         </div>
       )}
 
-      {/* Training Days - Moved here */}
-      {formData.programSubtype && (
+      {/* Training Days (for non-Lock In programs) */}
+      {formData.programSubtype && formData.programType !== 'lockin' && (
         <div className="mt-6 p-4 bg-dark-800 rounded-xl border border-dark-600">
           <label className="block text-sm font-medium text-gray-300 mb-2">
             How many days per week do you want to workout? <span className="text-accent-primary font-bold">{formData.desiredTrainingDays} days</span>
@@ -1275,6 +1524,81 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
     if (years < 6) return 'advanced';
     return 'elite';
   };
+
+  // Lock In Program - Show summary/confirmation
+  if (programType === 'lockin') {
+    return (
+      <div className="max-w-md mx-auto space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-white mb-2">🔥 Your 30 Day Lock In</h2>
+          <p className="text-gray-400">Review your commitments before we build your program.</p>
+        </div>
+
+        <div className="space-y-4">
+          {/* Program Structure */}
+          <div className="p-4 bg-dark-700 rounded-xl">
+            <h3 className="text-white font-semibold mb-3">Your Weekly Schedule:</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Days 1-6:</span>
+                <span className="text-white">Weightlifting + Light Cardio</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Day 7:</span>
+                <span className="text-white">{
+                  LOCKIN_RESTDAY_OPTIONS.find(o => o.id === safeFormData.lockInRestDayActivity)?.label || 'Active Recovery'
+                }</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Cardio (3x/week):</span>
+                <span className="text-white">{
+                  LOCKIN_CARDIO_OPTIONS.find(o => o.id === safeFormData.lockInCardioType)?.label || 'Cardio'
+                } (20-30 min)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Daily Commitments */}
+          <div className="p-4 bg-dark-700 rounded-xl">
+            <h3 className="text-white font-semibold mb-3">Daily Commitments:</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-accent-primary">✓</span>
+                <span className="text-white">1hr Workout (Non-negotiable)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-accent-primary">✓</span>
+                <span className="text-white">{safeFormData.lockInSteps} Steps Daily</span>
+              </div>
+              {safeFormData.lockInWater && (
+                <div className="flex items-center gap-2">
+                  <span className="text-accent-primary">✓</span>
+                  <span className="text-white">1 Gallon Water</span>
+                </div>
+              )}
+              {safeFormData.lockInProtein && (
+                <div className="flex items-center gap-2">
+                  <span className="text-accent-primary">✓</span>
+                  <span className="text-white">
+                    {safeFormData.lockInIdealWeight ? `${safeFormData.lockInIdealWeight}g Protein` : 'High Protein'} + Whole Foods
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Motivation */}
+          <div className="p-4 bg-gradient-to-r from-orange-500/10 to-red-500/10 rounded-xl border border-orange-500/30">
+            <p className="text-sm text-gray-300 text-center">
+              <span className="text-2xl block mb-2">💪</span>
+              30 days to build the habits that change everything.
+              <span className="text-white font-medium"> No excuses. No shortcuts.</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Render strength goals using dedicated component
   if (programType === 'strength') {
