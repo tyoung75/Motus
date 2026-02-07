@@ -244,17 +244,6 @@ function SetupWizard({ onComplete }) {
   const [devTapCount, setDevTapCount] = useState(0); // For activating test mode
   const devTapTimeoutRef = useRef(null); // Ref to track timeout
 
-  // Determine which step flow to use based on selected program
-  const getSteps = () => {
-    if (formData.programType === 'lockin') {
-      return STEPS_LOCKIN;
-    }
-    return STEPS_STANDARD;
-  };
-
-  const STEPS = getSteps();
-  const totalSteps = STEPS.length;
-
   const [formData, setFormData] = useState({
     // Personal
     name: '',
@@ -376,6 +365,17 @@ function SetupWizard({ onComplete }) {
     rmrFacility: '',
     rmrDate: '',
   });
+
+  // Determine which step flow to use based on selected program
+  const getSteps = () => {
+    if (formData.programType === 'lockin') {
+      return STEPS_LOCKIN;
+    }
+    return STEPS_STANDARD;
+  };
+
+  const STEPS = getSteps();
+  const totalSteps = STEPS.length;
 
   const updateFormData = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
