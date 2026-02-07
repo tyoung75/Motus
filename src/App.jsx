@@ -374,8 +374,11 @@ function AppContent() {
     // Initialize subscription for new users
     await initializeSubscription();
 
-    // Show paywall unless already subscribed
-    if (!isSubscribed) {
+    // Check if this is a Lock In user (use data.profile since state may not have updated yet)
+    const isLockIn = data.profile?.programType === 'lockin';
+
+    // Show paywall unless already subscribed OR Lock In user (they share to unlock, no payment needed)
+    if (!isSubscribed && !isLockIn) {
       setShowPaywall(true);
     }
 
