@@ -27,38 +27,34 @@ import {
 } from './lib/database';
 
 // Generate mock meal plan for testing without API calls
-// This creates a plan that EXACTLY hits daily macro targets
+// FIXED: Excluded meals don't redistribute calories - they just reduce the day's total
 const generateMockMealPlan = (preferences, profile) => {
-  const targetCalories = preferences.adjustedCalories || profile?.macros?.calories || 2000;
+  // Use FULL daily targets (not adjusted) - excluded meals just reduce that day's actual intake
+  const targetCalories = profile?.macros?.calories || 2000;
   const targetProtein = profile?.macros?.protein || 150;
   const mealsPerDay = preferences.mealsPerDay || 3;
   const snacksPerDay = preferences.snacksPerDay || 1;
 
-  // Calculate target macros (these MUST be hit exactly)
+  // Calculate target macros for a FULL day (all meals)
   const proteinCals = targetProtein * 4;
   const remainingCals = targetCalories - proteinCals;
   const targetCarbs = Math.round((remainingCals * 0.55) / 4);
   const targetFat = Math.round((remainingCals * 0.45) / 9);
 
-  // Meal distribution percentages (must sum to 1.0)
-  const getMealDistribution = () => {
-    const totalSlots = mealsPerDay + snacksPerDay;
-    // Breakfast: 20-25%, Lunch: 30-35%, Dinner: 35-40%, Snacks: 8-12% each
+  // FIXED: Standard meal portions (as % of daily target) - these stay constant
+  // Excluded meals just mean fewer meals that day, not bigger portions for remaining meals
+  const getStandardMealPortions = () => {
+    // Breakfast: 25%, Lunch: 30%, Dinner: 35%, Snacks: ~10% total
     if (mealsPerDay === 2) {
-      const snackPct = snacksPerDay > 0 ? 0.10 : 0;
-      return { breakfast: 0.35 - (snackPct * snacksPerDay / 2), dinner: 0.65 - (snackPct * snacksPerDay / 2), snack: snackPct };
-    } else if (mealsPerDay === 3) {
-      const snackPct = snacksPerDay > 0 ? 0.08 : 0;
-      const mainMealTotal = 1 - (snackPct * snacksPerDay);
-      return { breakfast: mainMealTotal * 0.25, lunch: mainMealTotal * 0.35, dinner: mainMealTotal * 0.40, snack: snackPct };
+      return { breakfast: 0.40, dinner: 0.50, snack: 0.10 / snacksPerDay };
     } else {
-      const snackPct = snacksPerDay > 0 ? 0.08 : 0;
-      const mainMealTotal = 1 - (snackPct * snacksPerDay);
-      return { breakfast: mainMealTotal * 0.22, lunch: mainMealTotal * 0.33, dinner: mainMealTotal * 0.45, snack: snackPct };
+      // Standard 3-meal distribution
+      const snackPct = snacksPerDay > 0 ? 0.10 / snacksPerDay : 0;
+      return { breakfast: 0.25, lunch: 0.30, dinner: 0.35, snack: snackPct };
     }
   };
 
-  const dist = getMealDistribution();
+  const standardPortions = getStandardMealPortions();
 
   // Meal templates with realistic ingredient bases
   const mealTemplates = {
@@ -150,76 +146,38 @@ const generateMockMealPlan = (preferences, profile) => {
     const dayMeals = [];
     let mealIndex = 0;
 
-    // Count non-excluded meals for this day
+    // Define meal types for this plan
     const mealTypes = mealsPerDay === 2 ? ['breakfast', 'dinner'] :
                       mealsPerDay === 3 ? ['breakfast', 'lunch', 'dinner'] :
                       ['breakfast', 'lunch', 'dinner'];
 
-    let includedMeals = [];
-    let includedSnacks = [];
+    // Running totals for the day (only included meals contribute)
+    let dayCals = 0, dayProtein = 0, dayCarbs = 0, dayFat = 0;
 
-    // Check which meals are included
+    // Process each meal type with STANDARD portions (not redistributed)
     mealTypes.forEach((type) => {
       const isExcluded = preferences.excludedMeals?.[`${dayId}-${mealIndex}`];
-      if (!isExcluded) {
-        includedMeals.push({ type, mealIndex });
-      }
       mealIndex++;
-    });
 
-    for (let i = 0; i < snacksPerDay; i++) {
-      const isExcluded = preferences.excludedMeals?.[`${dayId}-${mealIndex}`];
-      if (!isExcluded) {
-        includedSnacks.push({ type: 'snack', mealIndex, snackIndex: i });
-      }
-      mealIndex++;
-    }
+      // Skip excluded meals entirely - don't add to day totals
+      if (isExcluded) return;
 
-    // Calculate exact macros per meal to hit daily targets
-    const totalMealSlots = includedMeals.length + includedSnacks.length;
-    if (totalMealSlots === 0) {
-      mealPlan.week[day] = { meals: [], nutrients: { calories: 0, protein: 0, carbohydrates: 0, fat: 0 } };
-      return;
-    }
+      // Use STANDARD portion for this meal type (same regardless of other exclusions)
+      const portion = standardPortions[type];
+      const mealCals = Math.round(targetCalories * portion);
+      const mealProtein = Math.round(targetProtein * portion);
+      const mealCarbs = Math.round(targetCarbs * portion);
+      const mealFat = Math.round(targetFat * portion);
 
-    // Distribute daily macros across meals proportionally
-    // Main meals get more, snacks get less
-    const mainMealWeight = 1.0;
-    const snackWeight = 0.3;
-    const totalWeight = (includedMeals.length * mainMealWeight) + (includedSnacks.length * snackWeight);
+      // Add to day totals
+      dayCals += mealCals;
+      dayProtein += mealProtein;
+      dayCarbs += mealCarbs;
+      dayFat += mealFat;
 
-    // Calculate per-meal macros that sum to EXACTLY the daily targets
-    let runningCals = 0, runningProtein = 0, runningCarbs = 0, runningFat = 0;
-
-    // Add main meals
-    includedMeals.forEach((meal, idx) => {
-      const isLastMainMeal = idx === includedMeals.length - 1 && includedSnacks.length === 0;
-      const weight = mainMealWeight / totalWeight;
-
-      // Calculate this meal's macros
-      let mealCals, mealProtein, mealCarbs, mealFat;
-
-      if (isLastMainMeal) {
-        // Last meal gets the remainder to ensure we hit EXACT targets
-        mealCals = targetCalories - runningCals;
-        mealProtein = targetProtein - runningProtein;
-        mealCarbs = targetCarbs - runningCarbs;
-        mealFat = targetFat - runningFat;
-      } else {
-        mealCals = Math.round(targetCalories * weight);
-        mealProtein = Math.round(targetProtein * weight);
-        mealCarbs = Math.round(targetCarbs * weight);
-        mealFat = Math.round(targetFat * weight);
-      }
-
-      runningCals += mealCals;
-      runningProtein += mealProtein;
-      runningCarbs += mealCarbs;
-      runningFat += mealFat;
-
-      const template = mealTemplates[meal.type][dayIndex % mealTemplates[meal.type].length];
+      const template = mealTemplates[type][dayIndex % mealTemplates[type].length];
       const scaledMeal = createMealWithExactMacros(template, mealCals, mealProtein, mealCarbs, mealFat);
-      scaledMeal.type = meal.type;
+      scaledMeal.type = type;
 
       dayMeals.push(scaledMeal);
 
@@ -231,32 +189,27 @@ const generateMockMealPlan = (preferences, profile) => {
       };
     });
 
-    // Add snacks
-    includedSnacks.forEach((snack, idx) => {
-      const isLastMeal = idx === includedSnacks.length - 1;
-      const weight = snackWeight / totalWeight;
+    // Process snacks with STANDARD portions
+    for (let i = 0; i < snacksPerDay; i++) {
+      const isExcluded = preferences.excludedMeals?.[`${dayId}-${mealIndex}`];
+      mealIndex++;
 
-      let snackCals, snackProtein, snackCarbs, snackFat;
+      // Skip excluded snacks - don't redistribute
+      if (isExcluded) continue;
 
-      if (isLastMeal) {
-        // Last snack gets remainder
-        snackCals = targetCalories - runningCals;
-        snackProtein = targetProtein - runningProtein;
-        snackCarbs = targetCarbs - runningCarbs;
-        snackFat = targetFat - runningFat;
-      } else {
-        snackCals = Math.round(targetCalories * weight);
-        snackProtein = Math.round(targetProtein * weight);
-        snackCarbs = Math.round(targetCarbs * weight);
-        snackFat = Math.round(targetFat * weight);
-      }
+      const portion = standardPortions.snack;
+      const snackCals = Math.round(targetCalories * portion);
+      const snackProtein = Math.round(targetProtein * portion);
+      const snackCarbs = Math.round(targetCarbs * portion);
+      const snackFat = Math.round(targetFat * portion);
 
-      runningCals += snackCals;
-      runningProtein += snackProtein;
-      runningCarbs += snackCarbs;
-      runningFat += snackFat;
+      // Add to day totals
+      dayCals += snackCals;
+      dayProtein += snackProtein;
+      dayCarbs += snackCarbs;
+      dayFat += snackFat;
 
-      const template = mealTemplates.snack[(dayIndex + snack.snackIndex) % mealTemplates.snack.length];
+      const template = mealTemplates.snack[(dayIndex + i) % mealTemplates.snack.length];
       const scaledSnack = createMealWithExactMacros(template, snackCals, snackProtein, snackCarbs, snackFat);
       scaledSnack.type = 'snack';
 
@@ -267,16 +220,16 @@ const generateMockMealPlan = (preferences, profile) => {
         ingredients: generateIngredients(template, snackProtein, snackCarbs, snackFat),
         instructions: ['Quick, nutritious snack - enjoy!']
       };
-    });
+    }
 
-    // Day nutrients should EXACTLY match targets (for non-excluded meals)
+    // Day nutrients = sum of ONLY included meals (excluded meals don't boost others)
     mealPlan.week[day] = {
       meals: dayMeals,
       nutrients: {
-        calories: runningCals,
-        protein: runningProtein,
-        carbohydrates: runningCarbs,
-        fat: runningFat
+        calories: dayCals,
+        protein: dayProtein,
+        carbohydrates: dayCarbs,
+        fat: dayFat
       }
     };
   });
@@ -704,6 +657,7 @@ function AppContent() {
         isOpen={showMealModal}
         onClose={() => setShowMealModal(false)}
         onSave={handleLogMeal}
+        mealPlan={mealPlan}
       />
 
       <LogWorkoutModal

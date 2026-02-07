@@ -285,6 +285,7 @@ export default function ShoppingListView({ mealPlan, recipes, onBack }) {
                             </p>
                           </div>
 
+{/* Instacart link - commented out for now
                           <button
                             onClick={() => openInstacartItem(item.name)}
                             className="p-2 text-gray-400 hover:text-accent-secondary hover:bg-dark-700 rounded-lg"
@@ -292,6 +293,7 @@ export default function ShoppingListView({ mealPlan, recipes, onBack }) {
                           >
                             <ExternalLink className="w-4 h-4" />
                           </button>
+*/}
                         </div>
                       );
                     })}
@@ -303,7 +305,7 @@ export default function ShoppingListView({ mealPlan, recipes, onBack }) {
         )}
       </div>
 
-      {/* Retailer Picker Modal */}
+      {/* Instacart integration - commented out for now
       {showRetailerPicker && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={() => setShowRetailerPicker(false)}>
           <div className="w-full max-w-lg bg-dark-800 rounded-t-2xl p-4 pb-8" onClick={e => e.stopPropagation()}>
@@ -338,9 +340,7 @@ export default function ShoppingListView({ mealPlan, recipes, onBack }) {
         </div>
       )}
 
-      {/* Instacart CTA */}
       <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-dark-900 via-dark-900 to-transparent">
-        {/* Retailer selector */}
         <button
           onClick={() => setShowRetailerPicker(true)}
           className="w-full mb-2 py-2 px-4 bg-dark-700 rounded-lg flex items-center justify-between text-sm"
@@ -375,6 +375,7 @@ export default function ShoppingListView({ mealPlan, recipes, onBack }) {
           Opens Instacart with your remaining items
         </p>
       </div>
+      */}
     </div>
   );
 }

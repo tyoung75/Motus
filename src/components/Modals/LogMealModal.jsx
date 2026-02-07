@@ -13,7 +13,7 @@ import {
   COMMON_FOODS,
 } from '../../utils/foodDatabase';
 
-export function LogMealModal({ isOpen, onClose, onSave }) {
+export function LogMealModal({ isOpen, onClose, onSave, mealPlan }) {
   // View state
   const [view, setView] = useState('main'); // main, scanner, search, product
   const [isLoading, setIsLoading] = useState(false);
@@ -37,6 +37,47 @@ export function LogMealModal({ isOpen, onClose, onSave }) {
 
   // Meal metadata
   const [mealType, setMealType] = useState('');
+
+  // Helper: Get today's day name for meal plan lookup
+  const getTodayDayName = () => {
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    return days[new Date().getDay()];
+  };
+
+  // Helper: Get planned meal for today by type
+  const getPlannedMealForToday = (type) => {
+    if (!mealPlan?.week) return null;
+    const today = getTodayDayName();
+    const dayData = mealPlan.week[today];
+    if (!dayData?.meals) return null;
+    // Map meal type to lowercase for matching
+    const typeMap = {
+      'Breakfast': 'breakfast',
+      'Lunch': 'lunch',
+      'Dinner': 'dinner',
+      'Snack': 'snack',
+      'Pre-workout': 'snack',
+      'Post-workout': 'snack'
+    };
+    const mealTypeKey = typeMap[type] || type.toLowerCase();
+    return dayData.meals.find(m => m.type === mealTypeKey);
+  };
+
+  // Use planned meal - auto-fill the macros from meal plan
+  const usePlannedMeal = (plannedMeal) => {
+    const newItem = {
+      id: Date.now(),
+      name: plannedMeal.title,
+      brand: 'From Meal Plan',
+      amount: 1,
+      unit: 'serving',
+      calories: plannedMeal.calories,
+      protein: plannedMeal.protein,
+      carbs: plannedMeal.carbs,
+      fat: plannedMeal.fat,
+    };
+    setFoodItems([newItem]);
+  };
 
   // Reset state when modal closes
   useEffect(() => {
@@ -505,6 +546,39 @@ export function LogMealModal({ isOpen, onClose, onSave }) {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Quick Fill from Meal Plan */}
+        {mealPlan && (
+          <div className="p-4 bg-gradient-to-r from-accent-secondary/10 to-accent-primary/10 rounded-xl border border-accent-secondary/20">
+            <div className="flex items-center gap-2 mb-3">
+              <Utensils className="w-4 h-4 text-accent-secondary" />
+              <h4 className="text-sm font-medium text-white">Quick Fill from Today's Plan</h4>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {['Breakfast', 'Lunch', 'Dinner', 'Snack'].map((type) => {
+                const plannedMeal = getPlannedMealForToday(type);
+                if (!plannedMeal) return null;
+                return (
+                  <button
+                    key={type}
+                    onClick={() => {
+                      usePlannedMeal(plannedMeal);
+                      setMealType(type);
+                    }}
+                    className="px-3 py-2 bg-dark-700 border border-accent-secondary/30 rounded-lg text-left hover:border-accent-secondary transition-colors"
+                  >
+                    <p className="text-sm text-white font-medium">{type}</p>
+                    <p className="text-xs text-gray-400 truncate max-w-[120px]">{plannedMeal.title}</p>
+                    <p className="text-xs text-accent-secondary mt-0.5">{plannedMeal.calories} cal • {plannedMeal.protein}g P</p>
+                  </button>
+                );
+              })}
+            </div>
+            {!getPlannedMealForToday('Breakfast') && !getPlannedMealForToday('Lunch') && !getPlannedMealForToday('Dinner') && !getPlannedMealForToday('Snack') && (
+              <p className="text-xs text-gray-500">No meals planned for today</p>
+            )}
           </div>
         )}
 
