@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Modal, Button, Input } from '../shared';
 import { BarcodeScanner } from '../shared/BarcodeScanner';
+import { PhotoFoodLogger } from '../Nutrition/PhotoFoodLogger';
 import {
   fetchProductByBarcode,
   searchProducts,
@@ -15,7 +16,7 @@ import {
 
 export function LogMealModal({ isOpen, onClose, onSave, mealPlan }) {
   // View state
-  const [view, setView] = useState('main'); // main, scanner, search, product
+  const [view, setView] = useState('main'); // main, scanner, search, product, photo
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -221,6 +222,34 @@ export function LogMealModal({ isOpen, onClose, onSave, mealPlan }) {
       handleBarcodeScan(manualBarcode.trim());
     }
   };
+
+  // Handle photo food log
+  const handlePhotoLog = (loggedMeal) => {
+    // Convert photo-logged foods to our food item format
+    const items = loggedMeal.foods.map((food, idx) => ({
+      id: Date.now() + idx,
+      name: food.name,
+      brand: 'Photo Analysis',
+      amount: 1,
+      unit: food.portion,
+      calories: parseFloat(food.calories) || 0,
+      protein: parseFloat(food.protein) || 0,
+      carbs: parseFloat(food.carbs) || 0,
+      fat: parseFloat(food.fat) || 0,
+    }));
+    setFoodItems([...foodItems, ...items]);
+    setView('main');
+  };
+
+  // Render photo food logger
+  if (view === 'photo') {
+    return (
+      <PhotoFoodLogger
+        onLog={handlePhotoLog}
+        onClose={() => setView('main')}
+      />
+    );
+  }
 
   // Render barcode scanner
   if (view === 'scanner') {
@@ -442,17 +471,33 @@ export function LogMealModal({ isOpen, onClose, onSave, mealPlan }) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Log Meal" size="md">
       <div className="space-y-5">
-        {/* Quick actions */}
+        {/* Quick actions - Photo first as primary method */}
+        <button
+          onClick={() => setView('photo')}
+          className="w-full p-4 bg-gradient-to-r from-accent-primary/20 to-accent-secondary/20 border border-accent-primary/30 rounded-xl flex items-center gap-4 hover:border-accent-primary/50 transition-colors"
+        >
+          <div className="w-14 h-14 bg-accent-primary/20 rounded-full flex items-center justify-center">
+            <Camera className="w-7 h-7 text-accent-primary" />
+          </div>
+          <div className="text-left flex-1">
+            <span className="text-white font-medium text-lg">📸 Snap Your Meal</span>
+            <p className="text-sm text-gray-400">AI analyzes your photo instantly</p>
+          </div>
+          <span className="px-2 py-1 text-xs bg-accent-primary/20 text-accent-primary rounded-full">
+            Recommended
+          </span>
+        </button>
+
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => setView('scanner')}
-            className="p-4 bg-gradient-to-br from-accent-primary/20 to-accent-primary/5 border border-accent-primary/30 rounded-xl flex flex-col items-center gap-2 hover:border-accent-primary/50 transition-colors"
+            className="p-4 bg-dark-700 border border-dark-500 rounded-xl flex flex-col items-center gap-2 hover:border-dark-400 transition-colors"
           >
-            <div className="w-12 h-12 bg-accent-primary/20 rounded-full flex items-center justify-center">
-              <Barcode className="w-6 h-6 text-accent-primary" />
+            <div className="w-12 h-12 bg-dark-600 rounded-full flex items-center justify-center">
+              <Barcode className="w-6 h-6 text-gray-400" />
             </div>
             <span className="text-white font-medium">Scan Barcode</span>
-            <span className="text-xs text-gray-400">Point at product</span>
+            <span className="text-xs text-gray-400">Packaged foods</span>
           </button>
 
           <button
