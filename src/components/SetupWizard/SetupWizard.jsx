@@ -390,12 +390,28 @@ function SetupWizard({ onComplete }) {
     updateFormData('strengthGoals', updated);
   };
 
-  // Auto-populate name from Google account
+  // Auto-populate name from SignUpModal data or Google account
   useEffect(() => {
-    if (user && !formData.name) {
-      updateFormData('name', user.user_metadata?.full_name || user.email?.split('@')[0] || '');
+    if (!formData.name) {
+      // First try to get from SignUpModal data (localStorage)
+      const signupData = localStorage.getItem('motus_user_signup');
+      if (signupData) {
+        try {
+          const parsed = JSON.parse(signupData);
+          if (parsed.name) {
+            updateFormData('name', parsed.name);
+            return;
+          }
+        } catch (e) {
+          console.error('Error parsing signup data:', e);
+        }
+      }
+      // Fallback to Google account data
+      if (user) {
+        updateFormData('name', user.user_metadata?.full_name || user.email?.split('@')[0] || '');
+      }
     }
-  }, [user]);
+  }, [user, formData.name]);
 
   const handleNext = () => {
     const steps = getSteps();
@@ -1092,11 +1108,6 @@ function StepProgramSelection({ formData, updateFormData }) {
                     </div>
                   )}
                 </div>
-                {program.hybrid && (
-                  <span className="inline-block mt-2 px-2 py-0.5 text-xs bg-accent-secondary/20 text-accent-secondary rounded">
-                    Hybrid Available
-                  </span>
-                )}
               </div>
               <ChevronRight
                 className={`w-5 h-5 text-gray-500 transition-transform ${
@@ -1561,6 +1572,7 @@ function StepLockInCommitments({ formData, updateFormData }) {
 function StepLockInUnlock({ formData, isGenerating, onGenerate }) {
   const [shareCount, setShareCount] = useState(0);
   const [shareLinks, setShareLinks] = useState([]);
+  const [showStoryPreview, setShowStoryPreview] = useState(false);
   const shareUrl = 'https://motus.fitness/join'; // Will be replaced with actual URL
 
   const shareMessage = `I just signed up for the 30 Day Lock In challenge 🔥 Join me: ${shareUrl}`;
@@ -1660,6 +1672,26 @@ function StepLockInUnlock({ formData, isGenerating, onGenerate }) {
       {!isUnlocked && (
         <div className="space-y-3">
           <p className="text-sm text-gray-400 text-center">Share via:</p>
+
+          {/* Post to Story - Primary Option */}
+          <button
+            onClick={() => {
+              setShowStoryPreview(true);
+              // Count story as 3 shares (instant unlock)
+              setShareCount(3);
+            }}
+            className="w-full flex items-center justify-center gap-2 p-4 bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] hover:opacity-90 rounded-xl text-white font-semibold text-lg"
+          >
+            <span>📸</span> Share to Story
+            <span className="ml-2 text-xs bg-white/20 px-2 py-0.5 rounded">✨ Instant unlock!</span>
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-dark-600" />
+            <span className="text-xs text-gray-500">or share with 3 friends</span>
+            <div className="flex-1 h-px bg-dark-600" />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => handleShare('sms')}
@@ -1685,6 +1717,46 @@ function StepLockInUnlock({ formData, isGenerating, onGenerate }) {
             >
               <span>📋</span> Copy Link
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Story Preview Modal */}
+      {showStoryPreview && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+          <div className="max-w-sm w-full bg-dark-800 rounded-2xl overflow-hidden">
+            <div className="p-4 border-b border-dark-600">
+              <h3 className="text-lg font-semibold text-white text-center">Share to Your Story</h3>
+            </div>
+            {/* Story Preview */}
+            <div className="p-4">
+              <div className="aspect-[9/16] bg-gradient-to-br from-accent-primary via-accent-secondary to-accent-primary rounded-xl flex flex-col items-center justify-center p-6 text-center">
+                <span className="text-6xl mb-4">🔥</span>
+                <h4 className="text-2xl font-bold text-white mb-2">30 Day Lock In</h4>
+                <p className="text-white/80 text-sm mb-4">Challenge Accepted!</p>
+                <div className="bg-white/20 rounded-lg px-4 py-2">
+                  <p className="text-white text-xs">Join me: motus.fitness/join</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 space-y-3">
+              <button
+                onClick={() => {
+                  // Open Instagram with story intent
+                  window.open('https://www.instagram.com/stories/create/', '_blank');
+                  setShowStoryPreview(false);
+                }}
+                className="w-full p-3 bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] rounded-lg text-white font-semibold flex items-center justify-center gap-2"
+              >
+                Open Instagram
+              </button>
+              <button
+                onClick={() => setShowStoryPreview(false)}
+                className="w-full p-3 bg-dark-600 rounded-lg text-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

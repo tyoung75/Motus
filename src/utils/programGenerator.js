@@ -2127,6 +2127,219 @@ function createSmartHybridSchedule(
   return schedule;
 }
 
+// ============ 30 DAY LOCK IN PROGRAM ============
+
+function generateLockInProgram(formData) {
+  const { lockInSteps = '10k', lockInWater = true, lockInProtein = true } = formData;
+
+  // Lock In is always 30 days (approximately 4.5 weeks, we round to 5 weeks of programming)
+  const totalWeeks = 5;
+
+  // Generate 12-week periodized phases: Base (4), Build (4), Peak (3), Deload (1)
+  const phases = [];
+  for (let i = 0; i < totalWeeks; i++) {
+    if (i < 2) phases.push('Base');
+    else if (i < 4) phases.push('Build');
+    else phases.push('Peak');
+  }
+
+  // Full-body workout exercises for Lock In
+  const LOCKIN_EXERCISES = {
+    push: [
+      { name: 'Bench Press', sets: 4, reps: '8-10', muscleGroup: 'chest' },
+      { name: 'Overhead Press', sets: 3, reps: '8-10', muscleGroup: 'shoulders' },
+      { name: 'Incline Dumbbell Press', sets: 3, reps: '10-12', muscleGroup: 'chest' },
+      { name: 'Tricep Dips', sets: 3, reps: '10-15', muscleGroup: 'triceps' },
+    ],
+    pull: [
+      { name: 'Barbell Rows', sets: 4, reps: '8-10', muscleGroup: 'back' },
+      { name: 'Lat Pulldowns', sets: 3, reps: '10-12', muscleGroup: 'lats' },
+      { name: 'Face Pulls', sets: 3, reps: '15-20', muscleGroup: 'rear delts' },
+      { name: 'Barbell Curls', sets: 3, reps: '10-12', muscleGroup: 'biceps' },
+    ],
+    legs: [
+      { name: 'Barbell Squats', sets: 4, reps: '8-10', muscleGroup: 'quads' },
+      { name: 'Romanian Deadlifts', sets: 3, reps: '10-12', muscleGroup: 'hamstrings' },
+      { name: 'Leg Press', sets: 3, reps: '12-15', muscleGroup: 'quads' },
+      { name: 'Calf Raises', sets: 4, reps: '15-20', muscleGroup: 'calves' },
+    ],
+    fullBody: [
+      { name: 'Deadlifts', sets: 4, reps: '5-6', muscleGroup: 'full body' },
+      { name: 'Pull-ups', sets: 3, reps: '8-12', muscleGroup: 'back' },
+      { name: 'Dumbbell Lunges', sets: 3, reps: '10 each', muscleGroup: 'legs' },
+      { name: 'Plank', sets: 3, reps: '45-60s', muscleGroup: 'core' },
+    ],
+    upperBody: [
+      { name: 'Bench Press', sets: 4, reps: '8-10', muscleGroup: 'chest' },
+      { name: 'Barbell Rows', sets: 4, reps: '8-10', muscleGroup: 'back' },
+      { name: 'Overhead Press', sets: 3, reps: '8-10', muscleGroup: 'shoulders' },
+      { name: 'Chin-ups', sets: 3, reps: '8-12', muscleGroup: 'biceps' },
+    ],
+    lowerBody: [
+      { name: 'Barbell Squats', sets: 4, reps: '8-10', muscleGroup: 'quads' },
+      { name: 'Deadlifts', sets: 4, reps: '5-6', muscleGroup: 'posterior chain' },
+      { name: 'Leg Curls', sets: 3, reps: '12-15', muscleGroup: 'hamstrings' },
+      { name: 'Calf Raises', sets: 4, reps: '15-20', muscleGroup: 'calves' },
+    ],
+  };
+
+  // Lock In weekly schedule (6 training days + 1 active recovery)
+  const weeklySchedule = [
+    {
+      day: 1,
+      dayName: 'Monday',
+      name: 'Push Day',
+      isRestDay: false,
+      isDeload: false,
+      isCardioDay: true,
+      sessions: [{
+        type: 'strength',
+        focus: 'Push',
+        duration: 60,
+        exercises: LOCKIN_EXERCISES.push.map(ex => ({
+          ...ex,
+          id: `push-${ex.name.toLowerCase().replace(/\s+/g, '-')}`,
+          notes: `Warm up with lighter weight first`,
+        })),
+      }],
+    },
+    {
+      day: 2,
+      dayName: 'Tuesday',
+      name: 'Pull Day',
+      isRestDay: false,
+      isDeload: false,
+      isCardioDay: false,
+      sessions: [{
+        type: 'strength',
+        focus: 'Pull',
+        duration: 60,
+        exercises: LOCKIN_EXERCISES.pull.map(ex => ({
+          ...ex,
+          id: `pull-${ex.name.toLowerCase().replace(/\s+/g, '-')}`,
+          notes: `Focus on mind-muscle connection`,
+        })),
+      }],
+    },
+    {
+      day: 3,
+      dayName: 'Wednesday',
+      name: 'Legs + Cardio',
+      isRestDay: false,
+      isDeload: false,
+      isCardioDay: true,
+      sessions: [{
+        type: 'strength',
+        focus: 'Legs',
+        duration: 60,
+        exercises: LOCKIN_EXERCISES.legs.map(ex => ({
+          ...ex,
+          id: `legs-${ex.name.toLowerCase().replace(/\s+/g, '-')}`,
+          notes: `Full range of motion`,
+        })),
+      }],
+    },
+    {
+      day: 4,
+      dayName: 'Thursday',
+      name: 'Upper Body',
+      isRestDay: false,
+      isDeload: false,
+      isCardioDay: false,
+      sessions: [{
+        type: 'strength',
+        focus: 'Upper Body',
+        duration: 60,
+        exercises: LOCKIN_EXERCISES.upperBody.map(ex => ({
+          ...ex,
+          id: `upper-${ex.name.toLowerCase().replace(/\s+/g, '-')}`,
+          notes: `Controlled tempo`,
+        })),
+      }],
+    },
+    {
+      day: 5,
+      dayName: 'Friday',
+      name: 'Lower Body + Cardio',
+      isRestDay: false,
+      isDeload: false,
+      isCardioDay: true,
+      sessions: [{
+        type: 'strength',
+        focus: 'Lower Body',
+        duration: 60,
+        exercises: LOCKIN_EXERCISES.lowerBody.map(ex => ({
+          ...ex,
+          id: `lower-${ex.name.toLowerCase().replace(/\s+/g, '-')}`,
+          notes: `Progressive overload focus`,
+        })),
+      }],
+    },
+    {
+      day: 6,
+      dayName: 'Saturday',
+      name: 'Full Body',
+      isRestDay: false,
+      isDeload: false,
+      isCardioDay: false,
+      sessions: [{
+        type: 'strength',
+        focus: 'Full Body',
+        duration: 60,
+        exercises: LOCKIN_EXERCISES.fullBody.map(ex => ({
+          ...ex,
+          id: `full-${ex.name.toLowerCase().replace(/\s+/g, '-')}`,
+          notes: `Compound movement focus`,
+        })),
+      }],
+    },
+    {
+      day: 7,
+      dayName: 'Sunday',
+      name: 'Active Recovery',
+      isRestDay: true,
+      isDeload: false,
+      isCardioDay: false,
+      isActiveRecovery: true,
+      sessions: [{
+        type: 'recovery',
+        focus: 'Active Recovery',
+        duration: 60,
+        description: '1 hour of light activity: walking, yoga, stretching, swimming, or mobility work',
+        exercises: [
+          { name: 'Light Walking or Hiking', duration: '20-30 min', id: 'recovery-walk' },
+          { name: 'Dynamic Stretching', duration: '15-20 min', id: 'recovery-stretch' },
+          { name: 'Foam Rolling', duration: '10-15 min', id: 'recovery-foam' },
+        ],
+      }],
+    },
+  ];
+
+  return {
+    name: '30 Day Lock In',
+    description: 'Your 30-day transformation challenge with daily workouts, cardio, and recovery',
+    totalWeeks,
+    currentWeek: 1,
+    currentPhase: 'Base',
+    phases,
+    primaryGoal: 'lockin',
+    primarySubtype: 'lockin-standard',
+    daysPerWeek: 7,
+    weeklySchedule,
+    // Lock In specific commitments
+    commitments: {
+      workout: true,
+      steps: lockInSteps,
+      water: lockInWater,
+      protein: lockInProtein,
+      cardio: { daysPerWeek: 3, duration: '20-30 min' },
+      activeRecovery: { day: 7, duration: '1 hour' },
+    },
+    athleteLevel: calculateAthleteLevel(formData),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 // ============ MAIN GENERATOR ============
 
 export function generateProgram(formData) {
@@ -2165,6 +2378,12 @@ export function generateProgram(formData) {
   desiredTrainingDays = parseInt(desiredTrainingDays) || 4;
   if (desiredTrainingDays < 2) desiredTrainingDays = 2;
   if (desiredTrainingDays > 7) desiredTrainingDays = 7;
+
+  // 30 DAY LOCK IN SPECIAL HANDLING:
+  // Fixed 30-day program with daily workouts, cardio 3x/week, Day 7 active recovery
+  if (programType === 'lockin') {
+    return generateLockInProgram(formData);
+  }
 
   // TRIATHLON SPECIAL HANDLING:
   // - Automatically enable hybrid with strength focus

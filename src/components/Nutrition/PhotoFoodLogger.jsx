@@ -1,25 +1,57 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Upload, X, Loader2, Check, Edit2, RefreshCw } from 'lucide-react';
 
-// Simulated AI analysis - in production, this would call an actual AI API
-// (Claude Vision API, Google Cloud Vision, or OpenAI GPT-4V)
+// Analyze food using Claude Vision API (via server endpoint)
 const analyzeFood = async (imageData) => {
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 1500));
+  // Extract base64 data from data URL
+  const base64Data = imageData.split(',')[1];
+  const mediaType = imageData.split(';')[0].split(':')[1] || 'image/jpeg';
 
-  // Return mock analysis - in production, this would come from AI
+  try {
+    // Call our API endpoint (Vercel serverless function or similar)
+    const response = await fetch('/api/analyze-food', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image: base64Data,
+        mediaType: mediaType,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('API request failed');
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Food analysis API error:', error);
+
+    // Fallback to local analysis prompt if API fails
+    // This uses the same prompt structure but lets user know it's estimated
+    return await fallbackAnalysis(imageData);
+  }
+};
+
+// Fallback analysis when API is not available
+const fallbackAnalysis = async (imageData) => {
+  // Provide a reasonable default that user can edit
+  // This is shown when the API endpoint is not set up
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
   return {
     foods: [
-      { name: 'Grilled Chicken Breast', portion: '6 oz', calories: 280, protein: 52, carbs: 0, fat: 6 },
-      { name: 'Brown Rice', portion: '1 cup', calories: 215, protein: 5, carbs: 45, fat: 2 },
-      { name: 'Steamed Broccoli', portion: '1 cup', calories: 55, protein: 4, carbs: 11, fat: 0.5 },
+      { name: 'Food Item 1', portion: 'Estimate portion', calories: 300, protein: 20, carbs: 30, fat: 10 },
     ],
-    totals: { calories: 550, protein: 61, carbs: 56, fat: 8.5 },
-    confidence: 0.85,
+    totals: { calories: 300, protein: 20, carbs: 30, fat: 10 },
+    confidence: 0.3,
     suggestions: [
-      'Good protein-to-carb ratio for muscle building',
-      'Consider adding healthy fats (olive oil, avocado)',
+      '⚠️ AI analysis unavailable - please edit the items above',
+      'Tap "Edit" to adjust food names, portions, and macros',
     ],
+    isFallback: true,
   };
 };
 

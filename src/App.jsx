@@ -270,6 +270,10 @@ function AppContent() {
   const [showNutritionPreferences, setShowNutritionPreferences] = useState(false);
   const [isGeneratingMealPlan, setIsGeneratingMealPlan] = useState(false);
 
+  // Lock In users get free access (they shared to unlock)
+  const isLockInUser = profile?.programType === 'lockin';
+  const hasAccess = isSubscribed || isLockInUser;
+
   // Legal & Auth pages
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
@@ -329,15 +333,17 @@ function AppContent() {
   }, []);
 
   // Show paywall for existing users who aren't subscribed (after loading completes)
+  // EXCEPTION: Lock In users don't need to pay - they already shared to unlock
   useEffect(() => {
-    if (!isLoading && !subscriptionLoading && isSetupComplete && !isSubscribed) {
+    const isLockInUser = profile?.programType === 'lockin';
+    if (!isLoading && !subscriptionLoading && isSetupComplete && !isSubscribed && !isLockInUser) {
       // Small delay to let the UI render first
       const timer = setTimeout(() => {
         setShowPaywall(true);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [isLoading, subscriptionLoading, isSetupComplete, isSubscribed]);
+  }, [isLoading, subscriptionLoading, isSetupComplete, isSubscribed, profile?.programType]);
 
   // Wrapper functions to save to both local and cloud
   const setProfile = async (data) => {
@@ -578,18 +584,18 @@ function AppContent() {
   // Render main app
   return (
     <div className="min-h-screen bg-dark-900">
-      {/* Paywall Overlay - shown after setup if not subscribed */}
+      {/* Paywall Overlay - shown after setup if not subscribed (Lock In users exempt) */}
       <PaywallOverlay
-        isVisible={showPaywall && !isSubscribed}
+        isVisible={showPaywall && !hasAccess}
         onClose={() => setShowPaywall(false)}
         onSuccess={handleSubscriptionSuccess}
         program={program}
       />
 
-      {/* Main Content - with blur effect if not subscribed */}
-      <div className={!isSubscribed && isSetupComplete ? 'relative' : ''}>
+      {/* Main Content - with blur effect if no access */}
+      <div className={!hasAccess && isSetupComplete ? 'relative' : ''}>
         {/* Blur overlay for non-subscribers (dashboard still visible) */}
-        {!isSubscribed && isSetupComplete && activeTab !== 'dashboard' && (
+        {!hasAccess && isSetupComplete && activeTab !== 'dashboard' && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-40 flex items-center justify-center">
             <div className="text-center p-6">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent-primary/20 flex items-center justify-center">
@@ -617,17 +623,17 @@ function AppContent() {
             workouts={workouts}
             todaysMeals={todaysMeals}
             todaysWorkouts={todaysWorkouts}
-            isSubscribed={isSubscribed}
-            onLogMeal={() => isSubscribed ? setShowMealModal(true) : setShowPaywall(true)}
-            onLogWorkout={() => isSubscribed ? setShowWorkoutModal(true) : setShowPaywall(true)}
-            onViewProgram={() => isSubscribed ? setActiveTab('program') : setShowPaywall(true)}
-            onViewNutrition={() => isSubscribed ? setActiveTab('nutrition') : setShowPaywall(true)}
+            isSubscribed={hasAccess}
+            onLogMeal={() => hasAccess ? setShowMealModal(true) : setShowPaywall(true)}
+            onLogWorkout={() => hasAccess ? setShowWorkoutModal(true) : setShowPaywall(true)}
+            onViewProgram={() => hasAccess ? setActiveTab('program') : setShowPaywall(true)}
+            onViewNutrition={() => hasAccess ? setActiveTab('nutrition') : setShowPaywall(true)}
             onShowPaywall={() => setShowPaywall(true)}
             onCreateMealPlan={() => setShowNutritionPreferences(true)}
           />
         )}
 
-        {activeTab === 'program' && isSubscribed && (
+        {activeTab === 'program' && hasAccess && (
           <ProgramView
             program={program}
             completedWorkouts={completedExercises}
@@ -638,7 +644,7 @@ function AppContent() {
           />
         )}
 
-        {activeTab === 'nutrition' && isSubscribed && (
+        {activeTab === 'nutrition' && hasAccess && (
           <NutritionView
             profile={profile}
             meals={meals}
@@ -653,7 +659,7 @@ function AppContent() {
           />
         )}
 
-        {activeTab === 'stats' && isSubscribed && (
+        {activeTab === 'stats' && hasAccess && (
           <StatsView
             profile={profile}
             program={program}
@@ -666,7 +672,7 @@ function AppContent() {
           <ProfileView
             profile={profile}
             program={program}
-            isSubscribed={isSubscribed}
+            isSubscribed={hasAccess}
             onResetSetup={handleResetSetup}
             onShowPaywall={() => setShowPaywall(true)}
           />
@@ -677,13 +683,13 @@ function AppContent() {
       <TabBar
         activeTab={activeTab}
         onChange={(tab) => {
-          if (!isSubscribed && tab !== 'dashboard' && tab !== 'profile') {
+          if (!hasAccess && tab !== 'dashboard' && tab !== 'profile') {
             setShowPaywall(true);
           } else {
             setActiveTab(tab);
           }
         }}
-        isSubscribed={isSubscribed}
+        isSubscribed={hasAccess}
       />
 
       {/* Modals */}

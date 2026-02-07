@@ -445,6 +445,15 @@ export function Dashboard({
           </CardBody>
         </Card>
 
+        {/* Lock In Daily Commitments */}
+        {program?.primaryGoal === 'lockin' && (
+          <LockInCommitments
+            program={program}
+            profile={profile}
+            todaysWorkouts={todaysWorkouts}
+          />
+        )}
+
         {/* Program Overview */}
         <ProgramOverview profile={profile} program={program} />
 
@@ -517,6 +526,172 @@ export function Dashboard({
         </Card>
       </div>
     </div>
+  );
+}
+
+// Lock In Daily Commitments Tracker
+function LockInCommitments({ program, profile, todaysWorkouts }) {
+  // Get commitments from program or default
+  const commitments = program?.commitments || {
+    workout: true,
+    steps: '10k',
+    water: true,
+    protein: true,
+  };
+
+  // Check localStorage for today's completed commitments
+  const today = new Date().toISOString().split('T')[0];
+  const storageKey = `motus_lockin_${today}`;
+
+  const [completedCommitments, setCompletedCommitments] = React.useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Calculate streak from localStorage
+  const [streak, setStreak] = React.useState(0);
+
+  React.useEffect(() => {
+    // Calculate streak by checking previous days
+    let currentStreak = 0;
+    const checkDate = new Date();
+
+    for (let i = 0; i < 30; i++) {
+      const dateKey = `motus_lockin_${checkDate.toISOString().split('T')[0]}`;
+      const dayData = localStorage.getItem(dateKey);
+
+      if (dayData) {
+        try {
+          const parsed = JSON.parse(dayData);
+          // Check if all commitments were completed
+          const allComplete = Object.keys(commitments).every(
+            key => !commitments[key] || parsed[key]
+          );
+          if (allComplete) {
+            currentStreak++;
+          } else {
+            break;
+          }
+        } catch {
+          break;
+        }
+      } else if (i > 0) {
+        // No data for a previous day means streak is broken
+        break;
+      }
+
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    setStreak(currentStreak);
+  }, [completedCommitments]);
+
+  const toggleCommitment = (key) => {
+    const newCompleted = {
+      ...completedCommitments,
+      [key]: !completedCommitments[key],
+    };
+    setCompletedCommitments(newCompleted);
+    localStorage.setItem(storageKey, JSON.stringify(newCompleted));
+  };
+
+  // Check if workout was completed today
+  const workoutCompleted = todaysWorkouts.length > 0 || completedCommitments.workout;
+
+  const commitmentItems = [
+    {
+      key: 'workout',
+      label: '1hr Workout',
+      icon: '🏋️',
+      completed: workoutCompleted,
+      auto: todaysWorkouts.length > 0, // Auto-checked from workout logs
+    },
+    {
+      key: 'steps',
+      label: `${commitments.steps || '10k'} Steps`,
+      icon: '🚶',
+      completed: completedCommitments.steps,
+    },
+    commitments.water && {
+      key: 'water',
+      label: '1 Gallon Water',
+      icon: '💧',
+      completed: completedCommitments.water,
+    },
+    commitments.protein && {
+      key: 'protein',
+      label: 'High Protein',
+      icon: '🥩',
+      completed: completedCommitments.protein,
+    },
+  ].filter(Boolean);
+
+  const allComplete = commitmentItems.every(item => item.completed);
+
+  return (
+    <Card className={allComplete ? 'border-accent-success/50 bg-accent-success/5' : ''}>
+      <CardBody className="p-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-dark-600">
+          <h2 className="font-semibold text-white flex items-center gap-2">
+            <span className="text-xl">🔥</span>
+            30 Day Lock In
+          </h2>
+          {streak > 0 && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-accent-primary/20 rounded-full">
+              <Flame className="w-4 h-4 text-accent-primary" />
+              <span className="text-sm font-bold text-accent-primary">{streak} day streak!</span>
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 space-y-3">
+          {commitmentItems.map((item) => (
+            <button
+              key={item.key}
+              onClick={() => !item.auto && toggleCommitment(item.key)}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
+                item.completed
+                  ? 'bg-accent-success/10 border border-accent-success/30'
+                  : 'bg-dark-700 border border-dark-600 hover:border-dark-500'
+              }`}
+            >
+              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                item.completed
+                  ? 'bg-accent-success border-accent-success'
+                  : 'border-dark-500'
+              }`}>
+                {item.completed && (
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </div>
+              <span className="text-xl">{item.icon}</span>
+              <span className={`flex-1 text-left font-medium ${
+                item.completed ? 'text-accent-success' : 'text-white'
+              }`}>
+                {item.label}
+              </span>
+              {item.auto && (
+                <span className="text-xs text-gray-500 italic">Auto</span>
+              )}
+            </button>
+          ))}
+
+          {allComplete && (
+            <div className="mt-4 p-4 bg-gradient-to-r from-accent-success/20 to-accent-primary/20 rounded-xl border border-accent-success/30 text-center">
+              <span className="text-3xl mb-2 block">🎉</span>
+              <p className="font-semibold text-white">All commitments complete!</p>
+              <p className="text-sm text-gray-400">Keep the streak going tomorrow!</p>
+            </div>
+          )}
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 
