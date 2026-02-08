@@ -15,6 +15,7 @@ import { SignUpModal } from './components/Modals/SignUpModal';
 // Phone OTP auth commented out - Twilio setup pending
 // import { PhoneAuthModal } from './components/Modals/PhoneAuthModal';
 import { TabBar } from './components/shared/TabBar';
+import { FeedbackWidget } from './components/shared/FeedbackWidget';
 import { PaywallOverlay } from './components/Paywall';
 import { PrivacyPolicy, TermsConditions } from './pages';
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -741,6 +742,7 @@ function App() {
     <AuthProvider>
       <SubscriptionProvider>
         <AppContent />
+        <FeedbackWidget />
       </SubscriptionProvider>
     </AuthProvider>
   );
