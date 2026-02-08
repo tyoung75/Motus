@@ -70,7 +70,7 @@ const STEPS_LOCKIN = [
   { id: 1, title: 'Program', icon: Target },
   { id: 2, title: 'Quick Setup', icon: Scale },
   { id: 3, title: 'Commitments', icon: Dumbbell },
-  { id: 4, title: 'Unlock', icon: Sparkles },
+  { id: 4, title: 'Generate', icon: Sparkles },
 ];
 
 // MECE Program categories (Fat Loss removed - handled via nutrition goal)
@@ -577,7 +577,7 @@ function SetupWizard({ onComplete }) {
 
     // Different validation for Lock In vs Standard flows
     if (isLockIn) {
-      // Lock In flow: Program → Quick Setup → Commitments → Unlock
+      // Lock In flow: Program → Quick Setup → Commitments → Generate
       switch (currentStep) {
         case 1: // Program Selection
           return formData.programType === 'lockin';
@@ -590,7 +590,7 @@ function SetupWizard({ onComplete }) {
           return hasWeight && hasHeight && hasGender;
         case 3: // Commitments (always valid - has defaults)
           return true;
-        case 4: // Unlock/Share step
+        case 4: // Generate step
           return true;
         default:
           return true;
@@ -811,7 +811,7 @@ function SetupWizard({ onComplete }) {
       <div className="flex-1 px-6 py-6 overflow-y-auto">
         {/* Render steps based on program type (Lock In vs Standard) */}
         {formData.programType === 'lockin' ? (
-          // LOCK IN FLOW: 4 steps (Program → Quick Setup → Commitments → Unlock)
+          // LOCK IN FLOW: 4 steps (Program → Quick Setup → Commitments → Generate)
           <>
             {currentStep === 1 && (
               <StepProgramSelection formData={formData} updateFormData={updateFormData} />
@@ -823,7 +823,7 @@ function SetupWizard({ onComplete }) {
               <StepLockInCommitments formData={formData} updateFormData={updateFormData} />
             )}
             {currentStep === 4 && (
-              <StepLockInUnlock
+              <StepLockInGenerate
                 formData={formData}
                 isGenerating={isGenerating}
                 onGenerate={handleGenerateProgram}
@@ -1568,215 +1568,35 @@ function StepLockInCommitments({ formData, updateFormData }) {
 
 // Step 3 (Lock In): Commitments (updated step number)
 
-// Step 4 (Lock In): Share to Unlock
-function StepLockInUnlock({ formData, isGenerating, onGenerate }) {
-  const [shareCount, setShareCount] = useState(0);
-  const [shareLinks, setShareLinks] = useState([]);
-  const [showStoryPreview, setShowStoryPreview] = useState(false);
-  const shareUrl = 'https://motus.fitness/join'; // Will be replaced with actual URL
-
-  const shareMessage = `I just signed up for the 30 Day Lock In challenge 🔥 Join me: ${shareUrl}`;
-
-  const handleShare = async (platform) => {
-    let shareLink = '';
-
-    switch (platform) {
-      case 'sms':
-        shareLink = `sms:?body=${encodeURIComponent(shareMessage)}`;
-        break;
-      case 'whatsapp':
-        shareLink = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
-        break;
-      case 'messenger':
-        shareLink = `fb-messenger://share/?link=${encodeURIComponent(shareUrl)}&app_id=YOUR_APP_ID`;
-        break;
-      case 'copy':
-        try {
-          await navigator.clipboard.writeText(shareMessage);
-          alert('Link copied to clipboard!');
-        } catch (err) {
-          console.error('Failed to copy:', err);
-        }
-        // Still count as a share for now
-        break;
-      default:
-        // Use Web Share API if available
-        if (navigator.share) {
-          try {
-            await navigator.share({
-              title: '30 Day Lock In Challenge',
-              text: shareMessage,
-              url: shareUrl,
-            });
-          } catch (err) {
-            if (err.name !== 'AbortError') {
-              console.error('Share failed:', err);
-            }
-          }
-        }
-    }
-
-    if (shareLink) {
-      window.open(shareLink, '_blank');
-    }
-
-    // Track share (in production, this would verify actual shares)
-    if (!shareLinks.includes(platform + Date.now())) {
-      const newCount = Math.min(shareCount + 1, 3);
-      setShareCount(newCount);
-      setShareLinks([...shareLinks, platform + Date.now()]);
-    }
-  };
-
-  const isUnlocked = shareCount >= 3;
-
+// Step 4 (Lock In): Generate Program
+function StepLockInGenerate({ formData, isGenerating, onGenerate }) {
   return (
     <div className="max-w-md mx-auto space-y-6">
-      <div className="text-center">
-        <span className="text-5xl mb-4 block">🔓</span>
-        <h2 className="text-2xl font-bold text-white mb-2">Unlock Your Challenge</h2>
-        <p className="text-gray-400">
-          Share with 3 friends to unlock the 30 Day Lock In - completely free!
-        </p>
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Ready to Lock In</h2>
+        <p className="text-gray-400">Your AI-powered 30 Day Challenge is ready to generate.</p>
       </div>
 
-      {/* Share Progress */}
-      <div className="p-4 bg-dark-800 rounded-xl border border-dark-600">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-white font-medium">Share Progress</span>
-          <span className={`text-lg font-bold ${isUnlocked ? 'text-green-400' : 'text-accent-primary'}`}>
-            {shareCount}/3
-          </span>
-        </div>
-        <div className="flex gap-2">
-          {[0, 1, 2].map((idx) => (
-            <div
-              key={idx}
-              className={`flex-1 h-2 rounded-full ${
-                idx < shareCount ? 'bg-accent-primary' : 'bg-dark-600'
-              }`}
-            />
-          ))}
-        </div>
-        {isUnlocked && (
-          <p className="text-green-400 text-sm mt-2 flex items-center justify-center gap-2">
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            Unlocked! You can start your challenge.
-          </p>
-        )}
-      </div>
+      <div className="bg-dark-800 rounded-xl p-6 space-y-4">
+        <h3 className="font-semibold text-white">Your 30 Day Commitment</h3>
 
-      {/* Share Buttons */}
-      {!isUnlocked && (
-        <div className="space-y-3">
-          <p className="text-sm text-gray-400 text-center">Share via:</p>
-
-          {/* Post to Story - Primary Option */}
-          <button
-            onClick={() => {
-              setShowStoryPreview(true);
-              // Count story as 3 shares (instant unlock)
-              setShareCount(3);
-            }}
-            className="w-full flex items-center justify-center gap-2 p-4 bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] hover:opacity-90 rounded-xl text-white font-semibold text-lg"
-          >
-            <span>📸</span> Share to Story
-            <span className="ml-2 text-xs bg-white/20 px-2 py-0.5 rounded">✨ Instant unlock!</span>
-          </button>
-
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-dark-600" />
-            <span className="text-xs text-gray-500">or share with 3 friends</span>
-            <div className="flex-1 h-px bg-dark-600" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => handleShare('sms')}
-              className="flex items-center justify-center gap-2 p-3 bg-green-600 hover:bg-green-500 rounded-lg text-white font-medium"
-            >
-              <span>📱</span> Text/iMessage
-            </button>
-            <button
-              onClick={() => handleShare('whatsapp')}
-              className="flex items-center justify-center gap-2 p-3 bg-[#25D366] hover:bg-[#20BD5A] rounded-lg text-white font-medium"
-            >
-              <span>💬</span> WhatsApp
-            </button>
-            <button
-              onClick={() => handleShare('messenger')}
-              className="flex items-center justify-center gap-2 p-3 bg-[#0084FF] hover:bg-[#0073E6] rounded-lg text-white font-medium"
-            >
-              <span>💬</span> Messenger
-            </button>
-            <button
-              onClick={() => handleShare('copy')}
-              className="flex items-center justify-center gap-2 p-3 bg-dark-600 hover:bg-dark-500 rounded-lg text-white font-medium"
-            >
-              <span>📋</span> Copy Link
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Story Preview Modal */}
-      {showStoryPreview && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-          <div className="max-w-sm w-full bg-dark-800 rounded-2xl overflow-hidden">
-            <div className="p-4 border-b border-dark-600">
-              <h3 className="text-lg font-semibold text-white text-center">Share to Your Story</h3>
-            </div>
-            {/* Story Preview */}
-            <div className="p-4">
-              <div className="aspect-[9/16] bg-gradient-to-br from-accent-primary via-accent-secondary to-accent-primary rounded-xl flex flex-col items-center justify-center p-6 text-center">
-                <span className="text-6xl mb-4">🔥</span>
-                <h4 className="text-2xl font-bold text-white mb-2">30 Day Lock In</h4>
-                <p className="text-white/80 text-sm mb-4">Challenge Accepted!</p>
-                <div className="bg-white/20 rounded-lg px-4 py-2">
-                  <p className="text-white text-xs">Join me: motus.fitness/join</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 space-y-3">
-              <button
-                onClick={() => {
-                  // Open Instagram with story intent
-                  window.open('https://www.instagram.com/stories/create/', '_blank');
-                  setShowStoryPreview(false);
-                }}
-                className="w-full p-3 bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] rounded-lg text-white font-semibold flex items-center justify-center gap-2"
-              >
-                Open Instagram
-              </button>
-              <button
-                onClick={() => setShowStoryPreview(false)}
-                className="w-full p-3 bg-dark-600 rounded-lg text-gray-300"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Your Commitment Summary */}
-      <div className="p-4 bg-dark-700 rounded-xl">
-        <h3 className="text-white font-semibold mb-3">Your 30 Day Commitment:</h3>
         <div className="space-y-2 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-accent-primary">✓</span>
+            <span className="text-white">6 days/week weightlifting (double progressive overload)</span>
+          </div>
           <div className="flex items-center gap-2">
             <span className="text-accent-primary">✓</span>
             <span className="text-white">1hr Workout Daily</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-accent-primary">✓</span>
-            <span className="text-white">{formData.lockInSteps} Steps Daily</span>
+            <span className="text-white">{formData.lockInSteps || '10k'} Steps Daily</span>
           </div>
           {formData.lockInWater && (
             <div className="flex items-center gap-2">
               <span className="text-accent-primary">✓</span>
-              <span className="text-white">1 Gallon Water</span>
+              <span className="text-white">1 Gallon Water Daily</span>
             </div>
           )}
           {formData.lockInProtein && (
@@ -1794,43 +1614,39 @@ function StepLockInUnlock({ formData, isGenerating, onGenerate }) {
             <span className="text-white">Day 7: Active Recovery (1 hour)</span>
           </div>
         </div>
+
+        <hr className="border-dark-600" />
+
+        <div>
+          <span className="text-gray-400 text-sm">Program Features</span>
+          <ul className="text-sm text-white mt-1 space-y-1">
+            <li>✓ Double progressive overload built-in</li>
+            <li>✓ Daily structure and accountability</li>
+            <li>✓ Cardio and active recovery programmed</li>
+            <li>✓ 30 days of focused habit building</li>
+          </ul>
+        </div>
       </div>
 
-      {/* Generate Button */}
       <Button
         fullWidth
         size="lg"
         onClick={onGenerate}
-        disabled={!isUnlocked || isGenerating}
-        className={`${!isUnlocked ? 'opacity-50' : ''} ${isGenerating ? 'animate-pulse' : ''}`}
+        disabled={isGenerating}
+        className={isGenerating ? 'animate-pulse' : ''}
       >
         {isGenerating ? (
           <>
             <span className="animate-spin mr-2">⚡</span>
             Generating Your Program...
           </>
-        ) : isUnlocked ? (
-          <>
-            <Sparkles className="w-5 h-5 mr-2" />
-            Start My 30 Day Challenge
-          </>
         ) : (
           <>
-            🔒 Share to Unlock
+            <Sparkles className="w-5 h-5 mr-2" />
+            Generate My Program
           </>
         )}
       </Button>
-
-      {/* Skip for Tyler's friends (dev bypass) */}
-      <button
-        onClick={() => {
-          localStorage.setItem('motus_tylers_friend', 'true');
-          setShareCount(3);
-        }}
-        className="w-full text-xs text-gray-600 hover:text-gray-400 py-2"
-      >
-        I'm Tyler's friend (skip)
-      </button>
     </div>
   );
 }
