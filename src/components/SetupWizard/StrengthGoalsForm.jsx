@@ -426,20 +426,7 @@ export function StrengthGoalsForm({
         </div>
       )}
 
-      {/* Start Date */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Program Start Date
-        </label>
-        <input
-          type="date"
-          value={programStartDate || ''}
-          min={getTodayString()}
-          onChange={(e) => onUpdateStartDate(e.target.value)}
-          className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white"
-        />
-        <p className="text-xs text-gray-500 mt-1">Leave blank to start today</p>
-      </div>
+      {/* Program Start Date removed - shown once in main Goal Details section */}
 
       {/* Estimated Goal Accomplishment Date */}
       <div>

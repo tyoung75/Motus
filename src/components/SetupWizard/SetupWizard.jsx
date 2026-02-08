@@ -100,24 +100,22 @@ const PROGRAM_TYPES = [
   {
     id: 'strength',
     title: 'Strength',
-    description: 'Build maximal strength and power',
+    description: 'Powerbuilding program - strength & muscle',
     icon: '🏋️',
     subtypes: [
-      { id: 'powerlifting', label: 'Powerlifting' },
-      { id: 'olympic', label: 'Olympic Lifting' },
-      { id: 'strongman', label: 'Strongman' },
+      { id: 'powerlifting', label: 'Powerlifting/Powerbuilding' },
     ],
+    autoSelect: true, // Auto-select the only subtype
   },
   {
     id: 'aesthetic',
     title: 'Aesthetic',
-    description: 'Physique focused - muscle building and body composition',
+    description: 'Hypertrophy/Bodybuilding - sculpt your physique',
     icon: '💪',
     subtypes: [
       { id: 'hypertrophy', label: 'Hypertrophy/Bodybuilding' },
-      { id: 'lean-muscle', label: 'Lean Muscle Building' },
-      { id: 'recomp', label: 'Body Recomposition' },
     ],
+    autoSelect: true, // Auto-select the only subtype
   },
 ];
 
@@ -417,12 +415,15 @@ function SetupWizard({ onComplete }) {
     const steps = getSteps();
     if (currentStep < steps.length) {
       setCurrentStep((prev) => prev + 1);
+      // Scroll to top of content area when changing steps
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handleBack = () => {
     if (currentStep > 1) {
       setCurrentStep((prev) => prev - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -1017,7 +1018,7 @@ function StepProgramSelection({ formData, updateFormData }) {
         'Day 7: Active recovery (1 hour)',
         'Daily commitments: workout, steps, water, protein',
       ],
-      timeCommitment: '1-1.5 hours/day',
+      timeCommitment: '7-10 hours/week',
       bestFor: 'Anyone looking to build consistent habits and see quick results',
       hybrid: false,
     },
@@ -1040,24 +1041,24 @@ function StepProgramSelection({ formData, updateFormData }) {
     strength: {
       icon: '🏋️',
       title: 'Strength',
-      tagline: 'Build maximal strength and power',
-      description: 'Focused strength training for powerlifting, Olympic lifting, or general strength. Periodized for peak performance.',
+      tagline: 'Powerbuilding - strength & muscle',
+      description: 'A powerbuilding program combining heavy compound lifts with hypertrophy work. Build real-world strength while looking the part.',
       whatToExpect: [
-        'Progressive overload on compound lifts',
+        'Progressive overload on compound lifts (squat, bench, deadlift)',
         'Periodized intensity (volume → intensity → peak)',
-        'Accessory work for weak points',
+        'Accessory work for weak points and muscle development',
         'Strategic deloads every 4-6 weeks',
       ],
       timeCommitment: '4-6 hours/week',
-      bestFor: 'Those focused on getting stronger - powerlifters, Olympic lifters, strength enthusiasts',
+      bestFor: 'Those who want to get strong and build muscle - the best of both worlds',
       hybrid: false,
       hybridNote: 'Strength requires dedicated focus - hybrid not recommended',
     },
     aesthetic: {
       icon: '💪',
       title: 'Aesthetic',
-      tagline: 'Sculpt your physique',
-      description: 'Hypertrophy-focused training for muscle building, body recomposition, or physique competition.',
+      tagline: 'Hypertrophy/Bodybuilding',
+      description: 'A hypertrophy-focused bodybuilding program for maximum muscle growth and physique development.',
       whatToExpect: [
         'High-volume training with progressive overload',
         'Strategic exercise selection for balanced development',
@@ -1065,7 +1066,7 @@ function StepProgramSelection({ formData, updateFormData }) {
         'Periodized volume and intensity',
       ],
       timeCommitment: '5-7 hours/week',
-      bestFor: 'Bodybuilders, physique competitors, anyone focused on muscle building',
+      bestFor: 'Bodybuilders, physique competitors, anyone focused on maximum muscle growth',
       hybrid: false,
       hybridNote: 'Aesthetic goals require dedicated volume - hybrid not recommended',
     },
@@ -1079,7 +1080,13 @@ function StepProgramSelection({ formData, updateFormData }) {
       updateFormData('desiredTrainingDays', 6);
       updateFormData('enableHybrid', false);
     } else {
-      updateFormData('programSubtype', '');
+      // Auto-select subtype for programs with single option
+      const programDef = PROGRAM_TYPES.find(p => p.id === programId);
+      if (programDef?.autoSelect && programDef.subtypes.length === 1) {
+        updateFormData('programSubtype', programDef.subtypes[0].id);
+      } else {
+        updateFormData('programSubtype', '');
+      }
       // Reset hybrid for non-endurance
       if (programId !== 'endurance') {
         updateFormData('enableHybrid', false);
@@ -1114,15 +1121,12 @@ function StepProgramSelection({ formData, updateFormData }) {
                 : 'bg-dark-800 border-dark-600 hover:border-dark-400'
             }`}
           >
-            {/* Card Header - Always visible */}
+            {/* Card Header - Always visible, single tap selects */}
             <div
               className="p-4 flex items-start gap-4"
               onClick={() => {
-                if (expandedProgram === id) {
-                  handleSelectProgram(id);
-                } else {
-                  setExpandedProgram(id);
-                }
+                handleSelectProgram(id);
+                setExpandedProgram(id);
               }}
             >
               <span className="text-4xl">{program.icon}</span>
@@ -1202,8 +1206,8 @@ function StepProgramSelection({ formData, updateFormData }) {
         ))}
       </div>
 
-      {/* Subtype Selection (for non-Lock In programs) */}
-      {selectedProgram && formData.programType !== 'lockin' && (
+      {/* Subtype Selection (for programs with multiple subtypes, not Lock In or auto-select) */}
+      {selectedProgram && formData.programType !== 'lockin' && !selectedProgram.autoSelect && (
         <div className="p-4 bg-dark-800 rounded-xl border border-dark-600">
           <label className="block text-sm font-medium text-gray-300 mb-3">
             Select your specific focus:
@@ -1299,6 +1303,28 @@ function StepProgramSelection({ formData, updateFormData }) {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Training Days for auto-select programs (Strength, Aesthetic) */}
+      {selectedProgram?.autoSelect && formData.programType !== 'lockin' && (
+        <div className="p-4 bg-dark-800 rounded-xl border border-dark-600">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            How many days per week do you want to train?{' '}
+            <span className="text-accent-primary font-bold">{formData.desiredTrainingDays} days</span>
+          </label>
+          <input
+            type="range"
+            min="2"
+            max="7"
+            step="1"
+            value={formData.desiredTrainingDays}
+            onChange={(e) => updateFormData('desiredTrainingDays', parseInt(e.target.value))}
+            className="w-full h-2 bg-dark-600 rounded-lg appearance-none cursor-pointer accent-accent-primary"
+          />
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            {[2, 3, 4, 5, 6, 7].map(n => <span key={n}>{n}</span>)}
+          </div>
         </div>
       )}
     </div>
@@ -1804,22 +1830,7 @@ function StepBodyStats({ formData, updateFormData }) {
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Body Fat % <span className="text-gray-500">(Optional)</span>
-          </label>
-          <input
-            type="number"
-            value={formData.bodyFatPercent}
-            onChange={(e) => updateFormData('bodyFatPercent', e.target.value)}
-            placeholder="e.g., 20"
-            min="5"
-            max="50"
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-white placeholder-gray-500"
-          />
-        </div>
-
-        {/* Advanced Metrics Button */}
+        {/* Advanced Metrics Button (Body Fat % moved here) */}
         <div className="p-4 bg-dark-700/50 rounded-xl border border-dark-600">
           <div className="flex items-start justify-between">
             <div>
@@ -2492,20 +2503,7 @@ function StepGoalDetails({ formData, updateFormData, updateStrengthGoal, strengt
             </div>
           )}
 
-          {/* Program Start Date */}
-          <div className="pt-4 border-t border-dark-600">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Program Start Date
-            </label>
-            <input
-              type="date"
-              value={formData.programStartDate || ''}
-              min={getTodayString()}
-              onChange={(e) => updateFormData('programStartDate', e.target.value)}
-              className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white"
-            />
-            <p className="text-xs text-gray-500 mt-1">Leave blank to start today</p>
-          </div>
+          {/* Program Start Date removed - shown once in main Goal Details section */}
 
           {/* Recomp Strategy Info */}
           <div className="p-4 bg-gradient-to-r from-accent-primary/10 to-accent-secondary/10 rounded-lg border border-accent-primary/20">

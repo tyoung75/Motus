@@ -2129,6 +2129,35 @@ function createSmartHybridSchedule(
 
 // ============ 30 DAY LOCK IN PROGRAM ============
 
+// Get recovery exercises based on user's selected rest day activity (1 hour total)
+function getRecoveryExercises(restDayActivity) {
+  const activityMap = {
+    'jog': [
+      { name: 'Easy Jog', duration: '40 min', id: 'recovery-jog', notes: 'Conversational pace, zone 2 heart rate' },
+      { name: 'Cool Down Walk + Stretching', duration: '15 min', id: 'recovery-cooldown' },
+      { name: 'Foam Rolling', duration: '5 min', id: 'recovery-foam' },
+    ],
+    'walk': [
+      { name: 'Brisk Walk', duration: '40 min', id: 'recovery-walk', notes: 'Outdoor preferred, maintain good posture' },
+      { name: 'Dynamic Stretching', duration: '15 min', id: 'recovery-stretch' },
+      { name: 'Foam Rolling', duration: '5 min', id: 'recovery-foam' },
+    ],
+    'cycling-class': [
+      { name: 'Cycling Class / Spin', duration: '45 min', id: 'recovery-cycle', notes: 'Low-moderate intensity, stay seated' },
+      { name: 'Stretching & Cool Down', duration: '10 min', id: 'recovery-stretch' },
+      { name: 'Foam Rolling', duration: '5 min', id: 'recovery-foam' },
+    ],
+    'yoga': [
+      { name: 'Yoga Flow', duration: '45 min', id: 'recovery-yoga', notes: 'Vinyasa or Hatha style, focus on mobility' },
+      { name: 'Savasana & Breathing', duration: '10 min', id: 'recovery-breathe' },
+      { name: 'Foam Rolling', duration: '5 min', id: 'recovery-foam' },
+    ],
+  };
+
+  // Default to walk if no activity selected
+  return activityMap[restDayActivity] || activityMap['walk'];
+}
+
 function generateLockInProgram(formData) {
   const { lockInSteps = '10k', lockInWater = true, lockInProtein = true } = formData;
 
@@ -2305,12 +2334,8 @@ function generateLockInProgram(formData) {
         type: 'recovery',
         focus: 'Active Recovery',
         duration: 60,
-        description: '1 hour of light activity: walking, yoga, stretching, swimming, or mobility work',
-        exercises: [
-          { name: 'Light Walking or Hiking', duration: '20-30 min', id: 'recovery-walk' },
-          { name: 'Dynamic Stretching', duration: '15-20 min', id: 'recovery-stretch' },
-          { name: 'Foam Rolling', duration: '10-15 min', id: 'recovery-foam' },
-        ],
+        description: '1 hour total: chosen activity + stretching/mobility',
+        exercises: getRecoveryExercises(formData.lockInRestDayActivity),
       }],
     },
   ];

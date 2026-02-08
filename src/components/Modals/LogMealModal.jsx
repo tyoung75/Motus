@@ -117,7 +117,7 @@ export function LogMealModal({ isOpen, onClose, onSave, mealPlan }) {
         setCurrentProduct(result.product);
         // Use default serving from data source
         setServingAmount('1');
-        setServingUnit(result.product.servingSize || 'serving');
+        setServingUnit('serving');
         setView('product');
       } else {
         setError(`Product not found for barcode: ${barcode}`);
@@ -158,7 +158,7 @@ export function LogMealModal({ isOpen, onClose, onSave, mealPlan }) {
     setCurrentProduct(product);
     // Use default serving from data source
     setServingAmount('1');
-    setServingUnit(product.servingSize || 'serving');
+    setServingUnit('serving');
     setView('product');
   };
 

@@ -771,12 +771,22 @@ export function ProgramView({ program, completedWorkouts, onCompleteExercise, on
                                     </div>
                                   )}
 
-                                  {/* Planned values */}
-                                  <div className="flex flex-wrap gap-3 mt-2 text-sm">
+                                  {/* Planned values - clickable to edit */}
+                                  <div
+                                    onClick={() => viewingWeek === program?.currentWeek && startEditingExercise(sessionIdx, exIdx, exercise)}
+                                    className={`flex flex-wrap gap-3 mt-2 text-sm ${viewingWeek === program?.currentWeek ? 'cursor-pointer p-2 rounded-lg hover:bg-dark-600/50 transition-colors' : ''}`}
+                                  >
                                     {exercise.sets && <span className="text-gray-400"><span className="text-white font-medium">{exercise.sets}</span> sets</span>}
                                     {exercise.reps && <span className="text-gray-400"><span className="text-white font-medium">{exercise.reps}</span></span>}
                                     {exercise.startingWeight && <span className="text-gray-400">Target <span className="text-accent-primary font-medium">{exercise.startingWeight}</span></span>}
-                                    {exercise.rpe && <span className="text-gray-400">RPE <span className="text-accent-warning font-medium">{exercise.rpe}</span></span>}
+                                    {exercise.rpe && (
+                                      <span className="text-gray-400 relative group">
+                                        RPE <span className="text-accent-warning font-medium">{exercise.rpe}</span>
+                                        <span className="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-dark-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap border border-dark-600 z-10">
+                                          Rate of Perceived Exertion: 1-10 scale<br/>6-7 = moderate, 8 = hard (2 reps in reserve)<br/>9 = very hard (1 rep left), 10 = max effort
+                                        </span>
+                                      </span>
+                                    )}
                                     {exercise.pace && <span className="text-gray-400">Pace <span className="text-accent-primary font-medium">{exercise.pace}</span></span>}
                                     {exercise.heartRateZone && <span className="text-gray-400">Zone <span className="text-red-400 font-medium">{exercise.heartRateZone}</span></span>}
                                     {exercise.rest && <span className="text-gray-400">Rest <span className="text-white">{exercise.rest}</span></span>}

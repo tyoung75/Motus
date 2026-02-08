@@ -170,7 +170,17 @@ export function PhotoFoodLogger({ onLog, onClose }) {
     try {
       const result = await analyzeFood(imageData);
       setAnalysis(result);
-      setEditedFoods(result.foods.map(f => ({ ...f, selected: true })));
+      setEditedFoods(result.foods.map(f => ({
+        ...f,
+        selected: true,
+        multiplier: 1,
+        baseValues: {
+          calories: parseFloat(f.calories) || 0,
+          protein: parseFloat(f.protein) || 0,
+          carbs: parseFloat(f.carbs) || 0,
+          fat: parseFloat(f.fat) || 0,
+        }
+      })));
       setMode('review');
     } catch (err) {
       console.error('Analysis failed:', err);
@@ -186,9 +196,24 @@ export function PhotoFoodLogger({ onLog, onClose }) {
   };
 
   const handleFoodEdit = (index, field, value) => {
-    setEditedFoods(prev => prev.map((f, i) =>
-      i === index ? { ...f, [field]: value } : f
-    ));
+    setEditedFoods(prev => prev.map((f, i) => {
+      if (i !== index) return f;
+
+      // If editing multiplier, recalculate macros from base values
+      if (field === 'multiplier') {
+        const multiplier = parseFloat(value) || 1;
+        return {
+          ...f,
+          multiplier,
+          calories: (f.baseValues.calories * multiplier).toFixed(1),
+          protein: (f.baseValues.protein * multiplier).toFixed(1),
+          carbs: (f.baseValues.carbs * multiplier).toFixed(1),
+          fat: (f.baseValues.fat * multiplier).toFixed(1),
+        };
+      }
+
+      return { ...f, [field]: value };
+    }));
   };
 
   const handleConfirmLog = () => {
@@ -421,12 +446,42 @@ export function PhotoFoodLogger({ onLog, onClose }) {
                       )}
 
                       {mode === 'edit' ? (
-                        <input
-                          type="text"
-                          value={food.portion}
-                          onChange={(e) => handleFoodEdit(index, 'portion', e.target.value)}
-                          className="bg-dark-600 border border-dark-500 rounded px-2 py-1 text-gray-400 text-xs mb-2"
-                        />
+                        <div className="mb-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-500">Serving Size:</label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0.1"
+                              value={food.multiplier || 1}
+                              onChange={(e) => handleFoodEdit(index, 'multiplier', e.target.value)}
+                              className="w-16 bg-dark-600 border border-dark-500 rounded px-2 py-1 text-white text-sm font-medium"
+                            />
+                            <span className="text-xs text-gray-400">x</span>
+                          </div>
+                          <div className="flex gap-2">
+                            {[0.5, 1, 1.5, 2].map((preset) => (
+                              <button
+                                key={preset}
+                                onClick={() => handleFoodEdit(index, 'multiplier', preset.toString())}
+                                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                                  food.multiplier === preset
+                                    ? 'bg-accent-primary text-dark-900'
+                                    : 'bg-dark-600 text-gray-300 border border-dark-500 hover:border-accent-primary/50'
+                                }`}
+                              >
+                                {preset}x
+                              </button>
+                            ))}
+                          </div>
+                          <input
+                            type="text"
+                            value={food.portion}
+                            onChange={(e) => handleFoodEdit(index, 'portion', e.target.value)}
+                            className="w-full bg-dark-600 border border-dark-500 rounded px-2 py-1 text-gray-400 text-xs"
+                            placeholder="e.g., 6 oz chicken"
+                          />
+                        </div>
                       ) : (
                         <p className="text-xs text-gray-400">{food.portion}</p>
                       )}
