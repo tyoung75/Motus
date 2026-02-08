@@ -1,199 +1,229 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, Keyboard, Camera } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
 export function BarcodeScanner({ isOpen, onScan, onClose }) {
-  const scannerRef = useRef(null);
-  const html5QrCodeRef = useRef(null);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState(null);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualBarcode, setManualBarcode] = useState('');
-  const [cameraId, setCameraId] = useState(null);
   const [cameras, setCameras] = useState([]);
 
-  // Use refs to avoid stale closures in useEffect and html5-qrcode callbacks
+  // Refs to avoid stale closures
+  const html5QrCodeRef = useRef(null);
   const onScanRef = useRef(onScan);
-  onScanRef.current = onScan;
-  const cameraIdRef = useRef(cameraId);
-  cameraIdRef.current = cameraId;
-  const camerasRef = useRef(cameras);
-  camerasRef.current = cameras;
-
-  // Mutex to prevent start/stop race conditions
+  const cameraIdRef = useRef(null);
+  const mountedRef = useRef(false);
   const scannerBusyRef = useRef(false);
 
-  // Get available cameras
-  const getCameras = useCallback(async () => {
-    try {
-      const devices = await Html5Qrcode.getCameras();
-      setCameras(devices);
-      camerasRef.current = devices;
-      // Prefer back camera
-      const backCamera = devices.find(d =>
-        d.label.toLowerCase().includes('back') ||
-        d.label.toLowerCase().includes('rear') ||
-        d.label.toLowerCase().includes('environment')
-      );
-      const selectedId = backCamera?.id || devices[0]?.id;
-      setCameraId(selectedId);
-      cameraIdRef.current = selectedId;
-      return devices;
-    } catch (err) {
-      console.error('Error getting cameras:', err);
-      setError('Unable to access camera. Please grant camera permissions.');
-      return [];
-    }
-  }, []);
+  // Keep callback ref current
+  onScanRef.current = onScan;
 
-  // Stop scanning - using ref-based approach to avoid stale closures
-  const stopScanner = useCallback(async () => {
-    if (html5QrCodeRef.current) {
-      try {
-        const state = html5QrCodeRef.current.getState();
-        // Only stop if currently scanning (state 2 = SCANNING)
-        if (state === 2) {
-          await html5QrCodeRef.current.stop();
-        }
-        html5QrCodeRef.current.clear();
-      } catch (err) {
-        console.error('Error stopping scanner:', err);
+  // Cleanup scanner instance
+  const cleanup = async () => {
+    const scanner = html5QrCodeRef.current;
+    if (!scanner) return;
+
+    try {
+      const state = scanner.getState();
+      if (state === 2) { // SCANNING
+        await scanner.stop();
       }
-      html5QrCodeRef.current = null;
+      scanner.clear();
+    } catch (e) {
+      // Ignore cleanup errors
     }
+    html5QrCodeRef.current = null;
     setIsScanning(false);
-  }, []);
+  };
 
-  // Start scanning with race condition protection
-  const startScanner = useCallback(async () => {
-    // Prevent concurrent start/stop operations
-    if (scannerBusyRef.current) return;
-    scannerBusyRef.current = true;
+  // Initialize and start scanner
+  useEffect(() => {
+    if (!isOpen) return;
 
-    try {
-      // Stop any existing scanner first
-      await stopScanner();
+    mountedRef.current = true;
+    let timer;
 
-      // Small delay to let the DOM settle after stop
-      await new Promise(resolve => setTimeout(resolve, 100));
+    const init = async () => {
+      if (scannerBusyRef.current || !mountedRef.current) return;
+      scannerBusyRef.current = true;
 
-      // Verify the scanner region element exists
-      const scannerElement = document.getElementById('barcode-scanner-region');
-      if (!scannerElement) {
-        console.error('Scanner region element not found');
-        scannerBusyRef.current = false;
-        return;
-      }
+      try {
+        // Get cameras
+        const devices = await Html5Qrcode.getCameras();
+        if (!mountedRef.current) return;
 
-      setError(null);
-      setIsScanning(false);
+        setCameras(devices);
 
-      const deviceCameras = camerasRef.current.length > 0 ? camerasRef.current : await getCameras();
-
-      if (deviceCameras.length === 0) {
-        setError('No cameras found. Please connect a camera or use manual entry.');
-        setShowManualEntry(true);
-        scannerBusyRef.current = false;
-        return;
-      }
-
-      const selectedCameraId = cameraIdRef.current || deviceCameras[0]?.id;
-
-      const html5QrCode = new Html5Qrcode("barcode-scanner-region");
-      html5QrCodeRef.current = html5QrCode;
-
-      await html5QrCode.start(
-        selectedCameraId,
-        {
-          fps: 10,
-          qrbox: { width: 300, height: 120 },
-          formatsToSupport: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-        },
-        (decodedText) => {
-          // Success callback - use refs to avoid stale closures
-          if (navigator.vibrate) navigator.vibrate(100);
-          // Stop scanner then notify parent
-          stopScanner().then(() => {
-            onScanRef.current(decodedText);
-          });
-        },
-        (errorMessage) => {
-          // Ignore scan errors (just means no barcode found in frame)
+        if (devices.length === 0) {
+          setError('No cameras found. Use manual entry.');
+          setShowManualEntry(true);
+          scannerBusyRef.current = false;
+          return;
         }
-      );
 
-      setIsScanning(true);
-    } catch (err) {
-      console.error('Scanner start error:', err);
-      html5QrCodeRef.current = null;
-      setError(err.message || 'Failed to start camera. Please try manual entry.');
-      setShowManualEntry(true);
-    } finally {
-      scannerBusyRef.current = false;
-    }
-  }, [getCameras, stopScanner]);
+        // Prefer back camera
+        const backCam = devices.find(d =>
+          /back|rear|environment/i.test(d.label)
+        );
+        const selectedId = backCam?.id || devices[0]?.id;
+        cameraIdRef.current = selectedId;
+
+        // Verify DOM element exists
+        const el = document.getElementById('barcode-scanner-region');
+        if (!el || !mountedRef.current) {
+          scannerBusyRef.current = false;
+          return;
+        }
+
+        const scanner = new Html5Qrcode('barcode-scanner-region');
+        html5QrCodeRef.current = scanner;
+
+        await scanner.start(
+          selectedId,
+          {
+            fps: 10,
+            qrbox: { width: 280, height: 120 },
+            aspectRatio: 1.0,
+            formatsToSupport: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+          },
+          (decodedText) => {
+            // Barcode detected
+            if (navigator.vibrate) navigator.vibrate(100);
+            cleanup().then(() => {
+              onScanRef.current(decodedText);
+            });
+          },
+          () => {
+            // No barcode in frame — ignore
+          }
+        );
+
+        if (mountedRef.current) {
+          setIsScanning(true);
+        }
+      } catch (err) {
+        console.error('Scanner init error:', err);
+        if (mountedRef.current) {
+          setError(err.message || 'Failed to start camera.');
+          setShowManualEntry(true);
+        }
+      } finally {
+        scannerBusyRef.current = false;
+      }
+    };
+
+    // Small delay for DOM readiness
+    timer = setTimeout(init, 300);
+
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(timer);
+      cleanup();
+    };
+  }, [isOpen]); // Only depend on isOpen — no function deps that change
 
   // Handle manual barcode submission
-  const handleManualSubmit = useCallback(() => {
+  const handleManualSubmit = () => {
     if (manualBarcode.trim()) {
-      stopScanner();
+      cleanup();
       onScanRef.current(manualBarcode.trim());
       setManualBarcode('');
       setShowManualEntry(false);
     }
-  }, [manualBarcode, stopScanner]);
+  };
 
   // Switch camera
-  const switchCamera = useCallback(async () => {
-    if (camerasRef.current.length <= 1) return;
+  const switchCamera = async () => {
+    if (cameras.length <= 1 || scannerBusyRef.current) return;
+    scannerBusyRef.current = true;
 
-    const currentIndex = camerasRef.current.findIndex(c => c.id === cameraIdRef.current);
-    const nextIndex = (currentIndex + 1) % camerasRef.current.length;
-    const nextCameraId = camerasRef.current[nextIndex].id;
+    const currentIndex = cameras.findIndex(c => c.id === cameraIdRef.current);
+    const nextIndex = (currentIndex + 1) % cameras.length;
+    const nextId = cameras[nextIndex].id;
+    cameraIdRef.current = nextId;
 
-    await stopScanner();
-    setCameraId(nextCameraId);
-    cameraIdRef.current = nextCameraId;
-  }, [stopScanner]);
+    try {
+      await cleanup();
+      // Small delay then restart
+      await new Promise(r => setTimeout(r, 200));
 
-  // Effect to handle open/close
-  useEffect(() => {
-    let cancelled = false;
-
-    if (isOpen) {
-      // Delay start slightly to ensure DOM is ready
-      const timer = setTimeout(() => {
-        if (!cancelled) {
-          startScanner();
-        }
-      }, 200);
-      return () => {
-        cancelled = true;
-        clearTimeout(timer);
-        stopScanner();
-      };
-    } else {
-      stopScanner();
-      setShowManualEntry(false);
-      setManualBarcode('');
-      setError(null);
-    }
-
-    return () => {
-      cancelled = true;
-      stopScanner();
-    };
-  }, [isOpen, startScanner, stopScanner]);
-
-  // Effect to restart scanner when camera changes (from switchCamera)
-  useEffect(() => {
-    if (isOpen && cameraId && !showManualEntry && !scannerBusyRef.current) {
-      // Only restart if we already have cameras loaded (i.e., this is a camera switch, not initial mount)
-      if (camerasRef.current.length > 0 && html5QrCodeRef.current === null) {
-        startScanner();
+      const el = document.getElementById('barcode-scanner-region');
+      if (!el || !mountedRef.current) {
+        scannerBusyRef.current = false;
+        return;
       }
+
+      const scanner = new Html5Qrcode('barcode-scanner-region');
+      html5QrCodeRef.current = scanner;
+
+      await scanner.start(
+        nextId,
+        {
+          fps: 10,
+          qrbox: { width: 280, height: 120 },
+          aspectRatio: 1.0,
+          formatsToSupport: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        },
+        (decodedText) => {
+          if (navigator.vibrate) navigator.vibrate(100);
+          cleanup().then(() => onScanRef.current(decodedText));
+        },
+        () => {}
+      );
+      setIsScanning(true);
+    } catch (err) {
+      console.error('Camera switch error:', err);
+      setError('Failed to switch camera.');
+    } finally {
+      scannerBusyRef.current = false;
     }
-  }, [cameraId, isOpen, showManualEntry, startScanner]);
+  };
+
+  // Retry scanner
+  const retryScanner = () => {
+    setError(null);
+    setShowManualEntry(false);
+    cleanup().then(() => {
+      // Small delay then re-trigger by remounting
+      const el = document.getElementById('barcode-scanner-region');
+      if (el) {
+        scannerBusyRef.current = false;
+        // Re-init
+        const init = async () => {
+          if (scannerBusyRef.current) return;
+          scannerBusyRef.current = true;
+          try {
+            const selectedId = cameraIdRef.current || cameras[0]?.id;
+            if (!selectedId) {
+              setError('No camera available.');
+              setShowManualEntry(true);
+              scannerBusyRef.current = false;
+              return;
+            }
+            const scanner = new Html5Qrcode('barcode-scanner-region');
+            html5QrCodeRef.current = scanner;
+            await scanner.start(
+              selectedId,
+              { fps: 10, qrbox: { width: 280, height: 120 }, aspectRatio: 1.0, formatsToSupport: [0,1,2,3,4,5,6,7,8,9,10,11] },
+              (decodedText) => {
+                if (navigator.vibrate) navigator.vibrate(100);
+                cleanup().then(() => onScanRef.current(decodedText));
+              },
+              () => {}
+            );
+            setIsScanning(true);
+          } catch (err) {
+            setError(err.message || 'Failed to restart camera.');
+            setShowManualEntry(true);
+          } finally {
+            scannerBusyRef.current = false;
+          }
+        };
+        setTimeout(init, 300);
+      }
+    });
+  };
 
   if (!isOpen) return null;
 
@@ -214,26 +244,13 @@ export function BarcodeScanner({ isOpen, onScan, onClose }) {
         </div>
       </div>
 
-      {/* Scanner view */}
-      <div className="flex-1 relative flex items-center justify-center bg-black">
+      {/* Scanner view — html5-qrcode draws its own scanning box, no extra overlay needed */}
+      <div className="flex-1 relative bg-black">
         <div
           id="barcode-scanner-region"
-          ref={scannerRef}
           className="w-full h-full"
           style={{ minHeight: '300px' }}
         />
-
-        {/* Scanning indicator overlay */}
-        {isScanning && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="relative w-72 h-40 border-2 border-accent-primary/50 rounded-lg">
-              <div className="absolute top-0 left-0 w-8 h-8 border-l-4 border-t-4 border-accent-primary rounded-tl-lg" />
-              <div className="absolute top-0 right-0 w-8 h-8 border-r-4 border-t-4 border-accent-primary rounded-tr-lg" />
-              <div className="absolute bottom-0 left-0 w-8 h-8 border-l-4 border-b-4 border-accent-primary rounded-bl-lg" />
-              <div className="absolute bottom-0 right-0 w-8 h-8 border-r-4 border-b-4 border-accent-primary rounded-br-lg" />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Instructions / Manual Entry */}
@@ -258,12 +275,7 @@ export function BarcodeScanner({ isOpen, onScan, onClose }) {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => {
-                  setShowManualEntry(false);
-                  setManualBarcode('');
-                  setError(null);
-                  startScanner();
-                }}
+                onClick={retryScanner}
                 className="flex-1 px-4 py-3 bg-dark-700 text-white rounded-lg font-medium"
               >
                 Back to Camera
@@ -282,10 +294,7 @@ export function BarcodeScanner({ isOpen, onScan, onClose }) {
             <p className="text-red-400 mb-4">{error}</p>
             <div className="flex gap-2 justify-center">
               <button
-                onClick={() => {
-                  setError(null);
-                  startScanner();
-                }}
+                onClick={retryScanner}
                 className="px-6 py-3 bg-accent-primary text-white rounded-lg font-medium"
               >
                 Try Again

@@ -2,6 +2,7 @@
 // Uses Open Food Facts API (free, open-source food database)
 
 const OPEN_FOOD_FACTS_API = 'https://world.openfoodfacts.org/api/v2';
+const OPEN_FOOD_FACTS_SEARCH = 'https://world.openfoodfacts.org/cgi/search.pl';
 
 // Unit conversion factors (to grams)
 export const UNIT_CONVERSIONS = {
@@ -130,53 +131,83 @@ export async function fetchProductByBarcode(barcode) {
   }
 }
 
-// Search for products by name
+// Search local COMMON_FOODS by query
+function searchLocalFoods(query) {
+  const q = query.toLowerCase().trim();
+  return COMMON_FOODS.filter((food) => {
+    return food.name.toLowerCase().includes(q) ||
+      food.id.toLowerCase().includes(q) ||
+      (food.brand && food.brand.toLowerCase().includes(q));
+  });
+}
+
+// Search for products by name (uses CGI search endpoint for reliable results)
 export async function searchProducts(query, page = 1) {
+  // Always include matching local foods first (instant, no network needed)
+  const localMatches = searchLocalFoods(query);
+
   try {
-    const response = await fetch(
-      `${OPEN_FOOD_FACTS_API}/search?search_terms=${encodeURIComponent(query)}&page=${page}&page_size=20&fields=code,product_name,brands,image_front_small_url,nutriments,serving_size`
-    );
+    // Use the CGI search endpoint which properly handles search_terms
+    const url = `${OPEN_FOOD_FACTS_SEARCH}?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page=${page}&page_size=20&fields=code,product_name,brands,image_front_small_url,nutriments,serving_size&sort_by=unique_scans_n`;
+    const response = await fetch(url);
     const data = await response.json();
 
-    if (!data.products) {
+    if (!data.products || data.products.length === 0) {
+      // Return local matches even if API found nothing
+      if (localMatches.length > 0) {
+        return { success: true, products: localMatches, totalCount: localMatches.length, page: 1 };
+      }
       return { success: false, error: 'No products found', products: [] };
     }
 
-    const products = data.products.map((product) => {
-      const nutriments = product.nutriments || {};
-      const servingSize = product.serving_size || '100g';
-      const servingSizeGrams = parseServingSize(servingSize);
+    const apiProducts = data.products
+      .filter((product) => product.product_name && product.product_name.trim() !== '')
+      .map((product) => {
+        const nutriments = product.nutriments || {};
+        const servingSize = product.serving_size || '100g';
+        const servingSizeGrams = parseServingSize(servingSize);
 
-      return {
-        barcode: product.code,
-        name: product.product_name || 'Unknown Product',
-        brand: product.brands || '',
-        image: product.image_front_small_url || null,
-        servingSize: servingSize,
-        servingSizeGrams: servingSizeGrams,
-        perServing: {
-          calories: Math.round((nutriments['energy-kcal_100g'] || 0) * servingSizeGrams / 100),
-          protein: Math.round(((nutriments.proteins_100g || 0) * servingSizeGrams / 100) * 10) / 10,
-          carbs: Math.round(((nutriments.carbohydrates_100g || 0) * servingSizeGrams / 100) * 10) / 10,
-          fat: Math.round(((nutriments.fat_100g || 0) * servingSizeGrams / 100) * 10) / 10,
-        },
-        per100g: {
-          calories: Math.round(nutriments['energy-kcal_100g'] || 0),
-          protein: Math.round((nutriments.proteins_100g || 0) * 10) / 10,
-          carbs: Math.round((nutriments.carbohydrates_100g || 0) * 10) / 10,
-          fat: Math.round((nutriments.fat_100g || 0) * 10) / 10,
-        },
-      };
-    });
+        return {
+          barcode: product.code,
+          name: product.product_name,
+          brand: product.brands || '',
+          image: product.image_front_small_url || null,
+          servingSize: servingSize,
+          servingSizeGrams: servingSizeGrams,
+          perServing: {
+            calories: Math.round((nutriments['energy-kcal_100g'] || 0) * servingSizeGrams / 100),
+            protein: Math.round(((nutriments.proteins_100g || 0) * servingSizeGrams / 100) * 10) / 10,
+            carbs: Math.round(((nutriments.carbohydrates_100g || 0) * servingSizeGrams / 100) * 10) / 10,
+            fat: Math.round(((nutriments.fat_100g || 0) * servingSizeGrams / 100) * 10) / 10,
+          },
+          per100g: {
+            calories: Math.round(nutriments['energy-kcal_100g'] || 0),
+            protein: Math.round((nutriments.proteins_100g || 0) * 10) / 10,
+            carbs: Math.round((nutriments.carbohydrates_100g || 0) * 10) / 10,
+            fat: Math.round((nutriments.fat_100g || 0) * 10) / 10,
+          },
+        };
+      });
+
+    // Deduplicate: local matches first, then API results (skip API dupes)
+    const localIds = new Set(localMatches.map((f) => f.id));
+    const combinedProducts = [
+      ...localMatches,
+      ...apiProducts.filter((p) => !localIds.has(p.barcode)),
+    ];
 
     return {
       success: true,
-      products: products.filter((p) => p.name !== 'Unknown Product'),
-      totalCount: data.count || 0,
+      products: combinedProducts,
+      totalCount: data.count || combinedProducts.length,
       page: data.page || 1,
     };
   } catch (error) {
     console.error('Error searching products:', error);
+    // Still return local matches on network error
+    if (localMatches.length > 0) {
+      return { success: true, products: localMatches, totalCount: localMatches.length, page: 1 };
+    }
     return { success: false, error: 'Failed to search products', products: [] };
   }
 }
