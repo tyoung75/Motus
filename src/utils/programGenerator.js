@@ -2335,7 +2335,8 @@ function generateLockInProgram(formData) {
       cardio: { daysPerWeek: 3, duration: '20-30 min' },
       activeRecovery: { day: 7, duration: '1 hour' },
     },
-    athleteLevel: calculateAthleteLevel(formData),
+    athleteLevel: calculateAthleteLevel(formData).level,
+    athleteScore: calculateAthleteLevel(formData).score,
     generatedAt: new Date().toISOString(),
   };
 }
