@@ -12,18 +12,32 @@ export function BarcodeScanner({ isOpen, onScan, onClose }) {
   const [cameraId, setCameraId] = useState(null);
   const [cameras, setCameras] = useState([]);
 
+  // Use refs to avoid stale closures in useEffect and html5-qrcode callbacks
+  const onScanRef = useRef(onScan);
+  onScanRef.current = onScan;
+  const cameraIdRef = useRef(cameraId);
+  cameraIdRef.current = cameraId;
+  const camerasRef = useRef(cameras);
+  camerasRef.current = cameras;
+
+  // Mutex to prevent start/stop race conditions
+  const scannerBusyRef = useRef(false);
+
   // Get available cameras
   const getCameras = useCallback(async () => {
     try {
       const devices = await Html5Qrcode.getCameras();
       setCameras(devices);
+      camerasRef.current = devices;
       // Prefer back camera
       const backCamera = devices.find(d =>
         d.label.toLowerCase().includes('back') ||
         d.label.toLowerCase().includes('rear') ||
         d.label.toLowerCase().includes('environment')
       );
-      setCameraId(backCamera?.id || devices[0]?.id);
+      const selectedId = backCamera?.id || devices[0]?.id;
+      setCameraId(selectedId);
+      cameraIdRef.current = selectedId;
       return devices;
     } catch (err) {
       console.error('Error getting cameras:', err);
@@ -32,59 +46,15 @@ export function BarcodeScanner({ isOpen, onScan, onClose }) {
     }
   }, []);
 
-  // Start scanning
-  const startScanner = useCallback(async () => {
-    if (!scannerRef.current || html5QrCodeRef.current) return;
-
-    try {
-      setError(null);
-      setIsScanning(false);
-
-      const deviceCameras = cameras.length > 0 ? cameras : await getCameras();
-
-      if (deviceCameras.length === 0) {
-        setError('No cameras found. Please connect a camera or use manual entry.');
-        setShowManualEntry(true);
-        return;
-      }
-
-      const selectedCameraId = cameraId || deviceCameras[0]?.id;
-
-      const html5QrCode = new Html5Qrcode("barcode-scanner-region");
-      html5QrCodeRef.current = html5QrCode;
-
-      await html5QrCode.start(
-        selectedCameraId,
-        {
-          fps: 15, // Increased for faster scanning
-          qrbox: { width: 300, height: 120 }, // Optimized for 1D barcodes
-          aspectRatio: 1.777,
-          formatsToSupport: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], // Common barcode formats
-        },
-        (decodedText) => {
-          // Success callback
-          if (navigator.vibrate) navigator.vibrate(100);
-          stopScanner();
-          onScan(decodedText);
-        },
-        (errorMessage) => {
-          // Ignore scan errors (just means no barcode found in frame)
-        }
-      );
-
-      setIsScanning(true);
-    } catch (err) {
-      console.error('Scanner start error:', err);
-      setError(err.message || 'Failed to start camera. Please try manual entry.');
-      setShowManualEntry(true);
-    }
-  }, [cameraId, cameras, getCameras, onScan]);
-
-  // Stop scanning
+  // Stop scanning - using ref-based approach to avoid stale closures
   const stopScanner = useCallback(async () => {
     if (html5QrCodeRef.current) {
       try {
-        await html5QrCodeRef.current.stop();
+        const state = html5QrCodeRef.current.getState();
+        // Only stop if currently scanning (state 2 = SCANNING)
+        if (state === 2) {
+          await html5QrCodeRef.current.stop();
+        }
         html5QrCodeRef.current.clear();
       } catch (err) {
         console.error('Error stopping scanner:', err);
@@ -94,32 +64,114 @@ export function BarcodeScanner({ isOpen, onScan, onClose }) {
     setIsScanning(false);
   }, []);
 
+  // Start scanning with race condition protection
+  const startScanner = useCallback(async () => {
+    // Prevent concurrent start/stop operations
+    if (scannerBusyRef.current) return;
+    scannerBusyRef.current = true;
+
+    try {
+      // Stop any existing scanner first
+      await stopScanner();
+
+      // Small delay to let the DOM settle after stop
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Verify the scanner region element exists
+      const scannerElement = document.getElementById('barcode-scanner-region');
+      if (!scannerElement) {
+        console.error('Scanner region element not found');
+        scannerBusyRef.current = false;
+        return;
+      }
+
+      setError(null);
+      setIsScanning(false);
+
+      const deviceCameras = camerasRef.current.length > 0 ? camerasRef.current : await getCameras();
+
+      if (deviceCameras.length === 0) {
+        setError('No cameras found. Please connect a camera or use manual entry.');
+        setShowManualEntry(true);
+        scannerBusyRef.current = false;
+        return;
+      }
+
+      const selectedCameraId = cameraIdRef.current || deviceCameras[0]?.id;
+
+      const html5QrCode = new Html5Qrcode("barcode-scanner-region");
+      html5QrCodeRef.current = html5QrCode;
+
+      await html5QrCode.start(
+        selectedCameraId,
+        {
+          fps: 10,
+          qrbox: { width: 300, height: 120 },
+          formatsToSupport: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        },
+        (decodedText) => {
+          // Success callback - use refs to avoid stale closures
+          if (navigator.vibrate) navigator.vibrate(100);
+          // Stop scanner then notify parent
+          stopScanner().then(() => {
+            onScanRef.current(decodedText);
+          });
+        },
+        (errorMessage) => {
+          // Ignore scan errors (just means no barcode found in frame)
+        }
+      );
+
+      setIsScanning(true);
+    } catch (err) {
+      console.error('Scanner start error:', err);
+      html5QrCodeRef.current = null;
+      setError(err.message || 'Failed to start camera. Please try manual entry.');
+      setShowManualEntry(true);
+    } finally {
+      scannerBusyRef.current = false;
+    }
+  }, [getCameras, stopScanner]);
+
   // Handle manual barcode submission
   const handleManualSubmit = useCallback(() => {
     if (manualBarcode.trim()) {
       stopScanner();
-      onScan(manualBarcode.trim());
+      onScanRef.current(manualBarcode.trim());
       setManualBarcode('');
       setShowManualEntry(false);
     }
-  }, [manualBarcode, onScan, stopScanner]);
+  }, [manualBarcode, stopScanner]);
 
   // Switch camera
   const switchCamera = useCallback(async () => {
-    if (cameras.length <= 1) return;
+    if (camerasRef.current.length <= 1) return;
 
-    const currentIndex = cameras.findIndex(c => c.id === cameraId);
-    const nextIndex = (currentIndex + 1) % cameras.length;
-    const nextCameraId = cameras[nextIndex].id;
+    const currentIndex = camerasRef.current.findIndex(c => c.id === cameraIdRef.current);
+    const nextIndex = (currentIndex + 1) % camerasRef.current.length;
+    const nextCameraId = camerasRef.current[nextIndex].id;
 
     await stopScanner();
     setCameraId(nextCameraId);
-  }, [cameras, cameraId, stopScanner]);
+    cameraIdRef.current = nextCameraId;
+  }, [stopScanner]);
 
   // Effect to handle open/close
   useEffect(() => {
+    let cancelled = false;
+
     if (isOpen) {
-      startScanner();
+      // Delay start slightly to ensure DOM is ready
+      const timer = setTimeout(() => {
+        if (!cancelled) {
+          startScanner();
+        }
+      }, 200);
+      return () => {
+        cancelled = true;
+        clearTimeout(timer);
+        stopScanner();
+      };
     } else {
       stopScanner();
       setShowManualEntry(false);
@@ -128,16 +180,20 @@ export function BarcodeScanner({ isOpen, onScan, onClose }) {
     }
 
     return () => {
+      cancelled = true;
       stopScanner();
     };
-  }, [isOpen]);
+  }, [isOpen, startScanner, stopScanner]);
 
-  // Effect to restart scanner when camera changes
+  // Effect to restart scanner when camera changes (from switchCamera)
   useEffect(() => {
-    if (isOpen && cameraId && !showManualEntry) {
-      startScanner();
+    if (isOpen && cameraId && !showManualEntry && !scannerBusyRef.current) {
+      // Only restart if we already have cameras loaded (i.e., this is a camera switch, not initial mount)
+      if (camerasRef.current.length > 0 && html5QrCodeRef.current === null) {
+        startScanner();
+      }
     }
-  }, [cameraId]);
+  }, [cameraId, isOpen, showManualEntry, startScanner]);
 
   if (!isOpen) return null;
 

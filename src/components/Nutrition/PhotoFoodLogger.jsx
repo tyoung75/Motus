@@ -3,6 +3,13 @@ import { Camera, Upload, X, Loader2, Check, Edit2, RefreshCw } from 'lucide-reac
 
 // Analyze food using Claude Vision API (via server endpoint)
 const analyzeFood = async (imageData) => {
+  // Check for test mode - bypass API calls entirely
+  const isTestMode = localStorage.getItem('motus_test_no_api') === 'true';
+  if (isTestMode) {
+    console.log('[TEST MODE] Bypassing food analysis API, using mock data');
+    return await testModeFoodAnalysis();
+  }
+
   // Extract base64 data from data URL
   const base64Data = imageData.split(',')[1];
   const mediaType = imageData.split(';')[0].split(':')[1] || 'image/jpeg';
@@ -33,6 +40,48 @@ const analyzeFood = async (imageData) => {
     // This uses the same prompt structure but lets user know it's estimated
     return await fallbackAnalysis(imageData);
   }
+};
+
+// Test mode food analysis - returns realistic mock data without API calls
+const testModeFoodAnalysis = async () => {
+  // Simulate brief processing time
+  await new Promise(resolve => setTimeout(resolve, 800));
+
+  const mockMeals = [
+    {
+      foods: [
+        { name: 'Grilled Chicken Breast', portion: '6 oz', calories: 280, protein: 52, carbs: 0, fat: 6 },
+        { name: 'Brown Rice', portion: '1 cup cooked', calories: 215, protein: 5, carbs: 45, fat: 2 },
+        { name: 'Steamed Broccoli', portion: '1 cup', calories: 55, protein: 4, carbs: 11, fat: 1 },
+      ],
+      totals: { calories: 550, protein: 61, carbs: 56, fat: 9 },
+      confidence: 0.85,
+      suggestions: ['[TEST MODE] Mock data - no API call made', 'Tap Edit to adjust items and macros'],
+    },
+    {
+      foods: [
+        { name: 'Salmon Fillet', portion: '5 oz', calories: 290, protein: 36, carbs: 0, fat: 16 },
+        { name: 'Sweet Potato', portion: '1 medium', calories: 103, protein: 2, carbs: 24, fat: 0 },
+        { name: 'Mixed Green Salad', portion: '2 cups', calories: 30, protein: 2, carbs: 5, fat: 0 },
+      ],
+      totals: { calories: 423, protein: 40, carbs: 29, fat: 16 },
+      confidence: 0.82,
+      suggestions: ['[TEST MODE] Mock data - no API call made', 'Good protein-to-calorie ratio!'],
+    },
+    {
+      foods: [
+        { name: 'Greek Yogurt Parfait', portion: '1 bowl', calories: 320, protein: 24, carbs: 42, fat: 8 },
+        { name: 'Mixed Berries', portion: '1/2 cup', calories: 40, protein: 1, carbs: 10, fat: 0 },
+        { name: 'Granola', portion: '1/4 cup', calories: 120, protein: 3, carbs: 20, fat: 4 },
+      ],
+      totals: { calories: 480, protein: 28, carbs: 72, fat: 12 },
+      confidence: 0.88,
+      suggestions: ['[TEST MODE] Mock data - no API call made', 'Great post-workout snack!'],
+    },
+  ];
+
+  // Return a random mock meal for variety
+  return mockMeals[Math.floor(Math.random() * mockMeals.length)];
 };
 
 // Fallback analysis when API is not available

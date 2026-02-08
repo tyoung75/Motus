@@ -518,31 +518,38 @@ function SetupWizard({ onComplete }) {
     };
 
     let program = null;
+    const isTestMode = localStorage.getItem('motus_test_no_api') === 'true';
 
-    try {
-      console.log('Calling API with profile:', safeFormData.programType, safeFormData.programSubtype);
-      const response = await fetch('/api/generate-program', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          profile: safeFormData,
-          macros,
-          bmr,
-          tdee,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API error response:', errorText);
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      program = await response.json();
-      console.log('API returned program:', program?.name);
-    } catch (error) {
-      console.error('Error calling API, using fallback:', error);
+    if (isTestMode) {
+      // Test mode: skip API call entirely, use local program generator
+      console.log('[TEST MODE] Bypassing API, using local program generator');
       program = generateFallbackProgram(safeFormData);
+    } else {
+      try {
+        console.log('Calling API with profile:', safeFormData.programType, safeFormData.programSubtype);
+        const response = await fetch('/api/generate-program', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            profile: safeFormData,
+            macros,
+            bmr,
+            tdee,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('API error response:', errorText);
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        program = await response.json();
+        console.log('API returned program:', program?.name);
+      } catch (error) {
+        console.error('Error calling API, using fallback:', error);
+        program = generateFallbackProgram(safeFormData);
+      }
     }
 
     // Final validation before completing
@@ -729,9 +736,28 @@ function SetupWizard({ onComplete }) {
   };
 
   const activateTestMode = useCallback(() => {
-    if (window.confirm('Enter test mode? This will create a mock profile for testing.')) {
+    const choice = window.prompt(
+      'DEV TEST MODES:\n\n' +
+      '1 = Skip onboarding (mock profile + program, no API calls)\n' +
+      '2 = Normal onboarding but bypass all API calls (local generators only)\n' +
+      '0 = Disable test mode\n\n' +
+      'Enter 1, 2, or 0:',
+      '1'
+    );
+
+    if (choice === '1') {
+      // Mode 1: Skip onboarding entirely with mock data, no API calls anywhere
+      localStorage.setItem('motus_test_no_api', 'true');
       const testData = generateTestData();
       onComplete(testData);
+    } else if (choice === '2') {
+      // Mode 2: Go through onboarding but skip all API calls (use local generators)
+      localStorage.setItem('motus_test_no_api', 'true');
+      alert('Test mode 2 activated: API calls will be bypassed.\nProceeding with normal onboarding flow.');
+    } else if (choice === '0') {
+      // Disable test mode
+      localStorage.removeItem('motus_test_no_api');
+      alert('Test mode disabled. API calls will work normally.');
     }
   }, [onComplete]);
 
@@ -761,13 +787,19 @@ function SetupWizard({ onComplete }) {
         <p className="text-text-secondary text-sm mt-1">Build your personalized program</p>
         {devTapCount >= 3 && (
           <p className="text-accent-primary text-xs mt-1 animate-pulse">
-            {5 - devTapCount} more taps for test mode...
+            {5 - devTapCount} more taps for dev menu...
           </p>
         )}
         {/* Dev hint - shows on desktop */}
         <p className="text-gray-600 text-xs mt-1 hidden sm:block">
-          Tip: Press Ctrl+Shift+T for test mode
+          Tip: Press Ctrl+Shift+T for dev test modes
         </p>
+        {/* Show active test mode indicator */}
+        {localStorage.getItem('motus_test_no_api') === 'true' && (
+          <p className="text-amber-400 text-xs mt-1 font-medium">
+            ⚠️ TEST MODE: API calls bypassed
+          </p>
+        )}
       </header>
 
       {/* Step Indicator - Clean, minimal */}

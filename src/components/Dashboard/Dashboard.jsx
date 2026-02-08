@@ -137,8 +137,28 @@ export function Dashboard({
   // Calculate remaining calories
   const netCalories = consumed.calories - estimatedEOD;
 
+  // Check for test mode
+  const isTestMode = typeof window !== 'undefined' && localStorage.getItem('motus_test_no_api') === 'true';
+
   return (
     <div className="min-h-screen bg-dark-900 pb-24">
+      {/* Test mode indicator */}
+      {isTestMode && (
+        <div className="bg-amber-500/20 border-b border-amber-500/30 px-4 py-2 text-center">
+          <span className="text-amber-400 text-xs font-medium">
+            ⚠️ TEST MODE — API calls bypassed •{' '}
+            <button
+              onClick={() => {
+                localStorage.removeItem('motus_test_no_api');
+                window.location.reload();
+              }}
+              className="underline hover:text-amber-300"
+            >
+              Disable
+            </button>
+          </span>
+        </div>
+      )}
       {/* Header - Clean, confident */}
       <header className="px-6 pt-8 pb-6">
         <div className="flex items-center justify-between">

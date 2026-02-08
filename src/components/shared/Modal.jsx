@@ -10,6 +10,11 @@ export function Modal({
   showClose = true,
 }) {
   const modalRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  const wasOpenRef = useRef(false);
+
+  // Keep onClose ref current without triggering effects
+  onCloseRef.current = onClose;
 
   const sizes = {
     sm: 'max-w-md',
@@ -21,21 +26,27 @@ export function Modal({
 
   useEffect(() => {
     const handleEscape = (e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden';
-      // Focus trap
-      modalRef.current?.focus();
+      // Only focus modal on initial open, not on re-renders
+      // This prevents stealing focus from inputs (e.g., search input)
+      if (!wasOpenRef.current) {
+        modalRef.current?.focus();
+        wasOpenRef.current = true;
+      }
+    } else {
+      wasOpenRef.current = false;
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
